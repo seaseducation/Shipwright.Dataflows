@@ -5,7 +5,7 @@
 using System.Reflection;
 using Xunit.Sdk;
 
-namespace Shipwright.Core;
+namespace Shipwright;
 
 /// <summary>
 /// Test cases of boolean values.
