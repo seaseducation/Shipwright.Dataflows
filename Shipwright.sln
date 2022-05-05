@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_Common", "_Common", "{BAFA6AB0-94F3-481A-A314-BD7A754F19A5}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{BAFA6AB0-94F3-481A-A314-BD7A754F19A5}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitattributes = .gitattributes
@@ -11,11 +11,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_Common", "_Common", "{BAFA
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{14A3D02E-A722-434B-86CB-D8A0683F1EAB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shipwright.Core", "src\Shipwright.Core\Shipwright.Core.csproj", "{93F0243B-48D6-4449-8DDE-DEC628501E53}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shipwright.Core", "src\Core\Shipwright.Core\Shipwright.Core.csproj", "{DCC8BFEC-9539-43DF-BE29-7DD4E118F939}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shipwright.Core.Test", "src\Core\Shipwright.Core.Test\Shipwright.Core.Test.csproj", "{929D47CA-0D58-4A60-BD04-583471CA4A37}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shipwright.Test", "src\Shipwright.Test\Shipwright.Test.csproj", "{EA2DD246-0835-458E-91F2-B2EE511FE7A1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,17 +24,15 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{DCC8BFEC-9539-43DF-BE29-7DD4E118F939} = {14A3D02E-A722-434B-86CB-D8A0683F1EAB}
-		{929D47CA-0D58-4A60-BD04-583471CA4A37} = {14A3D02E-A722-434B-86CB-D8A0683F1EAB}
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{DCC8BFEC-9539-43DF-BE29-7DD4E118F939}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DCC8BFEC-9539-43DF-BE29-7DD4E118F939}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DCC8BFEC-9539-43DF-BE29-7DD4E118F939}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DCC8BFEC-9539-43DF-BE29-7DD4E118F939}.Release|Any CPU.Build.0 = Release|Any CPU
-		{929D47CA-0D58-4A60-BD04-583471CA4A37}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{929D47CA-0D58-4A60-BD04-583471CA4A37}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{929D47CA-0D58-4A60-BD04-583471CA4A37}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{929D47CA-0D58-4A60-BD04-583471CA4A37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93F0243B-48D6-4449-8DDE-DEC628501E53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93F0243B-48D6-4449-8DDE-DEC628501E53}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93F0243B-48D6-4449-8DDE-DEC628501E53}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93F0243B-48D6-4449-8DDE-DEC628501E53}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA2DD246-0835-458E-91F2-B2EE511FE7A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA2DD246-0835-458E-91F2-B2EE511FE7A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA2DD246-0835-458E-91F2-B2EE511FE7A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA2DD246-0835-458E-91F2-B2EE511FE7A1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
