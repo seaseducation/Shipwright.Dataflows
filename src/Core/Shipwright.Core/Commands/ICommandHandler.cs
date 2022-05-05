@@ -9,8 +9,6 @@ namespace Shipwright.Core.Commands;
 /// </summary>
 /// <typeparam name="TCommand">Type of the commands the handler can execute.</typeparam>
 /// <typeparam name="TResult">Type returned when the command is executed.</typeparam>
-[PublicAPI]
-// ReSharper disable once TypeParameterCanBeVariant
 public interface ICommandHandler<TCommand, TResult> where TCommand : Command<TResult>
 {
     /// <summary>

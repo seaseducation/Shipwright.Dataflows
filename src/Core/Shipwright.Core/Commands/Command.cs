@@ -8,5 +8,4 @@ namespace Shipwright.Core.Commands;
 /// Defines a command that can be executed.
 /// </summary>
 /// <typeparam name="TResult">Type returned when the command is executed.</typeparam>
-[PublicAPI]
-public abstract record Command<TResult> {}
+public abstract record Command<TResult>;
