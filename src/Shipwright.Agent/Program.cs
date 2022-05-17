@@ -2,6 +2,7 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using FluentValidation;
 using Lamar.Microsoft.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shipwright.Commands;
@@ -17,8 +18,10 @@ host.UseLamar( registry =>
         scanner.AssemblyContainingType<Program>();
         scanner.WithDefaultConventions();
         scanner.ConnectImplementationsToTypesClosing( typeof(ICommandHandler<,>) );
+        scanner.ConnectImplementationsToTypesClosing( typeof(IValidator<>) );
     } );
 
+    registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandValidationDecorator<,>) );
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandCancellationDecorator<,>) );
 } );
 
