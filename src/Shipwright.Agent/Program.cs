@@ -5,6 +5,7 @@
 using FluentValidation;
 using Lamar.Microsoft.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Shipwright.Actions;
 using Shipwright.Commands;
 using Shipwright.Commands.Internal;
 
@@ -19,6 +20,9 @@ host.UseLamar( registry =>
         scanner.WithDefaultConventions();
         scanner.ConnectImplementationsToTypesClosing( typeof(ICommandHandler<,>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(IValidator<>) );
+
+        // add all discovered actions by type name
+        scanner.AddAllTypesOf<IActionFactory>().NameBy( type => type.Name );
     } );
 
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandValidationDecorator<,>) );
