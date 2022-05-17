@@ -1,0 +1,9 @@
+{
+    "profiles": {
+      "Shipwright.Agent": {
+        "commandName": "Project",
+        "dotnetRunMessages": true,
+        "commandLineArgs": "--environment Development"
+      }
+    }
+  }
