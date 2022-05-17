@@ -21,4 +21,8 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Shipwright.Agent\Shipwright.Agent.csproj" />
+  </ItemGroup>
+
 </Project>
