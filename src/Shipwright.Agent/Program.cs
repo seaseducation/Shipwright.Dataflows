@@ -5,6 +5,7 @@
 using Lamar.Microsoft.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shipwright.Commands;
+using Shipwright.Commands.Internal;
 
 var host = Host.CreateDefaultBuilder( args );
 
@@ -17,6 +18,8 @@ host.UseLamar( registry =>
         scanner.WithDefaultConventions();
         scanner.ConnectImplementationsToTypesClosing( typeof(ICommandHandler<,>) );
     } );
+
+    registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandCancellationDecorator<,>) );
 } );
 
 await host.RunConsoleAsync();
