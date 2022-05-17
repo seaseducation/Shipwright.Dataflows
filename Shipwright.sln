@@ -13,6 +13,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shipwright.Test", "src\Shipwright.Test\Shipwright.Test.csproj", "{006CF0CA-D9E2-43F2-B837-2671320330D6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shipwright.Core", "src\Shipwright.Core\Shipwright.Core.csproj", "{CCA584AC-910B-4240-B516-BC988F3C6E0F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,5 +28,9 @@ Global
 		{006CF0CA-D9E2-43F2-B837-2671320330D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{006CF0CA-D9E2-43F2-B837-2671320330D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{006CF0CA-D9E2-43F2-B837-2671320330D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CCA584AC-910B-4240-B516-BC988F3C6E0F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CCA584AC-910B-4240-B516-BC988F3C6E0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CCA584AC-910B-4240-B516-BC988F3C6E0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CCA584AC-910B-4240-B516-BC988F3C6E0F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
