@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shipwright.Actions;
+using Shipwright.Actions.Internal;
 using Shipwright.Commands;
 using Shipwright.Commands.Internal;
 
@@ -26,6 +27,7 @@ host.UseLamar( registry =>
     {
         scanner.AssemblyContainingType<ICommandDispatcher>();
         scanner.AssemblyContainingType<Program>();
+        scanner.Exclude( type => type.Name.Contains( "Decorator" ) );
         scanner.WithDefaultConventions();
         scanner.ConnectImplementationsToTypesClosing( typeof(ICommandHandler<,>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(IValidator<>) );
@@ -36,6 +38,7 @@ host.UseLamar( registry =>
 
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandValidationDecorator<,>) );
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandCancellationDecorator<,>) );
+    registry.For( typeof(IActionFactory) ).DecorateAllWith( typeof(CancellationActionDecorator) );
 
     // register background task to run
     registry.AddHostedService<Program>();

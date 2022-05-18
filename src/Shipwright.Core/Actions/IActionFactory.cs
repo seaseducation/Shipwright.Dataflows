@@ -2,6 +2,8 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using Shipwright.Commands;
+
 namespace Shipwright.Actions;
 
 /// <summary>
@@ -16,6 +18,6 @@ public interface IActionFactory
     /// </summary>
     /// <param name="context">Context of the action.</param>
     /// <param name="cancellationToken" />
-    /// <returns>The configured action.</returns>
-    public Task<Action> Create( ActionContext context, CancellationToken cancellationToken );
+    /// <returns>A command for executing the configured action.</returns>
+    public Task<Command> Create( ActionContext context, CancellationToken cancellationToken );
 }

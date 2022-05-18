@@ -6,7 +6,7 @@ using Shipwright.Commands;
 
 namespace Shipwright.Actions;
 
-/// <summary>
-/// Defines an action that can be configured and executed.
-/// </summary>
-public abstract record Action : Command;
+public record FakeAction : Command
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+}
