@@ -7,6 +7,16 @@ namespace Shipwright.Actions;
 /// <summary>
 /// Metadata for an executing action.
 /// </summary>
-/// <param name="Tenant">Tenant for which the action is being executed.</param>
-/// <param name="Configuration">Alternate configuration to use (if different than the tenant).</param>
-public record ActionContext( string Tenant, string? Configuration = null );
+public record ActionContext
+{
+    /// <summary>
+    /// Tenant for which the action is being executed.
+    /// </summary>
+    public string Tenant { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Configuration to use.
+    /// Defaults to the tenant when unspecified.
+    /// </summary>
+    public string? Configuration { get; init; } = null;
+}
