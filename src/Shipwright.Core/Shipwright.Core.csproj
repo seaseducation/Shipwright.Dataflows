@@ -10,6 +10,14 @@
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="11.0.1" />
     <PackageReference Include="Lamar.Microsoft.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="NetEscapades.Configuration.Yaml" Version="2.2.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- include configurations as content -->
+    <Content Include="Configurations/**/*" >
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  
 </Project>

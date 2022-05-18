@@ -16,7 +16,7 @@ public record ActionContext
 
     /// <summary>
     /// Configuration to use.
-    /// Defaults to the tenant when unspecified.
+    /// Defaults to the tenant configuration when <see cref="Tenant"/> is unspecified.
     /// </summary>
     public string? Configuration { get; init; } = null;
 }

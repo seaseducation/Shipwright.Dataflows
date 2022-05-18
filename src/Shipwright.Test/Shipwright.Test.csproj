@@ -28,4 +28,11 @@
     <ProjectReference Include="..\Shipwright.Agent\Shipwright.Agent.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- include configurations as content -->
+    <Content Include="Configurations/**/*">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  
 </Project>
