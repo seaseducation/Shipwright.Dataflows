@@ -16,4 +16,11 @@
     <ProjectReference Include="..\Shipwright.Core\Shipwright.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- include configurations as content -->
+    <Content Include="Properties/**/*.yml" >
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  
 </Project>

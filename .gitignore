@@ -9,6 +9,7 @@
 *.user
 *.userosscache
 *.sln.docstates
+appsettings.User.yml
 
 # User-specific files (Mac)
 **/.DS_Store

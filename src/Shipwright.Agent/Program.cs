@@ -16,6 +16,12 @@ var host = Host.CreateDefaultBuilder( args );
 
 host.ConfigureAppConfiguration( ( context, configuration ) =>
 {
+    // add base application configuration
+    configuration
+        .AddYamlFile( Path.Combine( "Properties", "appsettings.yml" ) )
+        .AddYamlFile( Path.Combine( "Properties", $"appsettings.{context.HostingEnvironment.EnvironmentName}.yml" ) )
+        .AddYamlFile( Path.Combine( "Properties", $"appsettings.User.yml" ), true );
+
     // command line options should be added last to override all other configuration
     configuration.AddCommandLine( args );
 } );
