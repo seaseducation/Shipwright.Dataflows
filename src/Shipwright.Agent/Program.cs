@@ -3,7 +3,6 @@
 // All Rights Reserved.
 
 using FluentValidation;
-using Lamar;
 using Lamar.Microsoft.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,27 +49,25 @@ partial class Program : BackgroundService
 {
     readonly IHostApplicationLifetime _lifetime;
     readonly IConfiguration _configuration;
-    readonly IServiceContext _container;
+    readonly ICommandDispatcher _dispatcher;
 
-    public Program( IHostApplicationLifetime lifetime, IConfiguration configuration, IServiceContext container )
+    public Program( IHostApplicationLifetime lifetime, IConfiguration configuration, ICommandDispatcher dispatcher )
     {
         _lifetime = lifetime ?? throw new ArgumentNullException( nameof(lifetime) );
         _configuration = configuration ?? throw new ArgumentNullException( nameof(configuration) );
-        _container = container ?? throw new ArgumentNullException( nameof(container) );
+        _dispatcher = dispatcher ?? throw new ArgumentNullException( nameof(dispatcher) );
     }
 
     protected override async Task ExecuteAsync( CancellationToken stoppingToken )
     {
         try
         {
-            // get execution options from configuration
-            var action = _configuration["action"] ?? string.Empty;
-            var context = _configuration.Get<ActionContext>();
-            var factory = _container.GetInstance<IActionFactory>( action );
-            var command = await factory.Create( context, stoppingToken );
-
-            await _container.GetInstance<ICommandDispatcher>()
-                .Execute( command, stoppingToken );
+            var command = new InvokeAction
+            {
+                Action = _configuration["action"],
+                Context = _configuration.Get<ActionContext>()
+            };
+            await _dispatcher.Execute( command, stoppingToken );
         }
 
         // always exit the console application upon service completion
