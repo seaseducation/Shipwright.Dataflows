@@ -45,7 +45,7 @@ public record Dataflow : Command
     [UsedImplicitly]
     public class Handler : CommandHandler<Dataflow>
     {
-        protected override Task ExecuteCommand( Dataflow command, CancellationToken cancellationToken )
+        protected override async Task ExecuteCommand( Dataflow command, CancellationToken cancellationToken )
         {
             if ( command == null ) throw new ArgumentNullException( nameof(command) );
 
@@ -60,7 +60,26 @@ public record Dataflow : Command
                 PropagateCompletion = true,
             };
 
-            throw new NotImplementedException();
+            var buffer = new BufferBlock<Record>( executionOptions );
+            var transform = new TransformBlock<Record, Record>( record =>
+            {
+                // todo: define record transformations
+                return record;
+            }, executionOptions );
+            var terminus = new ActionBlock<Record>( record =>
+            {
+                // todo: define per-record post-processing
+            }, executionOptions );
+
+            using var transformLink = buffer.LinkTo( transform, linkOptions );
+            using var terminusLink = transform.LinkTo( terminus, linkOptions );
+
+            // todo: send records to dataflow
+
+            buffer.Complete();
+            await terminus.Completion;
+
+            // todo: dataflow post-processing
         }
     }
 }
