@@ -13,6 +13,12 @@ namespace Shipwright.Dataflows;
 public record Dataflow : Command
 {
     /// <summary>
+    /// Unique name describing the dataflow.
+    /// Logging for all records within a dataflow will be grouped by this name.
+    /// </summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>
     /// Validator for the <see cref="Dataflow"/> command.
     /// </summary>
     [UsedImplicitly]
@@ -20,7 +26,7 @@ public record Dataflow : Command
     {
         public Validator()
         {
-
+            RuleFor( _ => _.Name ).NotEmpty();
         }
     }
 
