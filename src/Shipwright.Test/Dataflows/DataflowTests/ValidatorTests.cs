@@ -32,4 +32,29 @@ public class ValidatorTests
             result.ShouldNotHaveValidationErrorFor( _ => _.Name );
         }
     }
+
+    public class MaxDegreeOfParallelism : ValidatorTests
+    {
+        [Theory]
+        [InlineData( -3 )]
+        [InlineData( -2 )]
+        [InlineData( 0 )]
+        public async Task cannot_be_negative_when_not_unlimited( int value )
+        {
+            instance = instance with { MaxDegreeOfParallelism = value };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.MaxDegreeOfParallelism );
+        }
+
+        [Theory]
+        [InlineData( -1 )] // unlimited
+        [InlineData( 1 )]
+        [InlineData( 2 )]
+        public async Task valid_when_positive( int value )
+        {
+            instance = instance with { MaxDegreeOfParallelism = value };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.MaxDegreeOfParallelism );
+        }
+    }
 }

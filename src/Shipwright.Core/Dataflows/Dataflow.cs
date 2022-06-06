@@ -4,6 +4,8 @@
 
 using FluentValidation;
 using Shipwright.Commands;
+using System.Runtime.InteropServices.ComTypes;
+using System.Threading.Tasks.Dataflow;
 
 namespace Shipwright.Dataflows;
 
@@ -19,6 +21,13 @@ public record Dataflow : Command
     public string Name { get; init; } = string.Empty;
 
     /// <summary>
+    /// Maximum number of dataflow records to process at a time.
+    /// Defaults to 1.
+    /// Must be a positive value or -1 for unlimited.
+    /// </summary>
+    public int MaxDegreeOfParallelism { get; init; } = 1;
+
+    /// <summary>
     /// Validator for the <see cref="Dataflow"/> command.
     /// </summary>
     [UsedImplicitly]
@@ -27,6 +36,7 @@ public record Dataflow : Command
         public Validator()
         {
             RuleFor( _ => _.Name ).NotEmpty();
+            RuleFor( _ => _.MaxDegreeOfParallelism ).GreaterThan( 0 ).When( _ => _.MaxDegreeOfParallelism != -1 );
         }
     }
 
