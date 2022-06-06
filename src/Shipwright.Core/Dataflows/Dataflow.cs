@@ -4,7 +4,6 @@
 
 using FluentValidation;
 using Shipwright.Commands;
-using System.Runtime.InteropServices.ComTypes;
 using System.Threading.Tasks.Dataflow;
 
 namespace Shipwright.Dataflows;
@@ -49,6 +48,18 @@ public record Dataflow : Command
         protected override Task ExecuteCommand( Dataflow command, CancellationToken cancellationToken )
         {
             if ( command == null ) throw new ArgumentNullException( nameof(command) );
+
+            var executionOptions = new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = command.MaxDegreeOfParallelism,
+                CancellationToken = cancellationToken,
+            };
+
+            var linkOptions = new DataflowLinkOptions
+            {
+                PropagateCompletion = true,
+            };
+
             throw new NotImplementedException();
         }
     }
