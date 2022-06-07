@@ -91,18 +91,22 @@ public record Dataflow : Command
             var linkOptions = _helper.GetDataflowLinkOptions();
 
             var buffer = new BufferBlock<Record>( blockOptions );
-            var transform = new TransformBlock<Record, Record>( record =>
+            var terminus = new ActionBlock<Record>( async record =>
             {
-                // todo: define record transformations
-                return record;
-            }, blockOptions );
-            var terminus = new ActionBlock<Record>( record =>
-            {
-                // todo: define per-record post-processing
+                try
+                {
+                    // todo: define per-record processing
+                }
+
+                catch ( Exception e )
+                {
+                    // ReSharper disable once AccessToDisposedClosure
+                    cts.Cancel();
+                    if ( e is not OperationCanceledException ) throw;
+                }
             }, blockOptions );
 
-            using var transformLink = buffer.LinkTo( transform, linkOptions );
-            using var terminusLink = transform.LinkTo( terminus, linkOptions );
+            using var link = buffer.LinkTo( terminus, linkOptions );
 
             // todo: send records to dataflow
 
