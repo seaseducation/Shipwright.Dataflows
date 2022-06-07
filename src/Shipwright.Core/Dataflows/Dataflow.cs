@@ -80,11 +80,14 @@ public record Dataflow : Command
             PropagateCompletion = true
         };
 
-        public virtual Task<ISourceReader> GetSourceReader( IEnumerable<Source> sources, CancellationToken cancellationToken )
-        {
-            // todo: translate collection to an aggregate source
-            throw new NotImplementedException();
-        }
+        /// <summary>
+        /// Builds the data source reader for the given dataflow.
+        /// </summary>
+        /// <param name="dataflow">Dataflow whose data source reader to create.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The completed data source reader.</returns>
+        public virtual Task<ISourceReader> GetSourceReader( Dataflow dataflow, CancellationToken cancellationToken ) =>
+            _readerFactory.Create( new AggregateSource { Sources = dataflow.Sources }, dataflow, cancellationToken );
     }
 
     /// <summary>
@@ -116,6 +119,7 @@ public record Dataflow : Command
             {
                 try
                 {
+                    throw new InvalidOperationException( "This was expected" );
                     // todo: define per-record processing
                 }
 
@@ -129,7 +133,7 @@ public record Dataflow : Command
 
             using var link = buffer.LinkTo( terminus, linkOptions );
 
-            var reader = await _helper.GetSourceReader( command.Sources, cts.Token );
+            var reader = await _helper.GetSourceReader( command, cts.Token );
 
             // send records to dataflow
             await foreach ( var record in reader.Read( cts.Token ) )
