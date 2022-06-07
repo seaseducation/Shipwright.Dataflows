@@ -4,6 +4,7 @@
 
 using FluentValidation;
 using Shipwright.Commands;
+using Shipwright.Dataflows.Sources;
 using System.Threading.Tasks.Dataflow;
 
 namespace Shipwright.Dataflows;
@@ -27,6 +28,11 @@ public record Dataflow : Command
     public int MaxDegreeOfParallelism { get; init; } = 1;
 
     /// <summary>
+    /// Collection of data sources from which to read records.
+    /// </summary>
+    public ICollection<Source> Sources { get; init; } = new List<Source>();
+
+    /// <summary>
     /// Validator for the <see cref="Dataflow"/> command.
     /// </summary>
     [UsedImplicitly]
@@ -36,6 +42,7 @@ public record Dataflow : Command
         {
             RuleFor( _ => _.Name ).NotEmpty();
             RuleFor( _ => _.MaxDegreeOfParallelism ).GreaterThan( 0 ).When( _ => _.MaxDegreeOfParallelism != -1 );
+            RuleFor( _ => _.Sources ).NotEmpty();
         }
     }
 
@@ -45,6 +52,13 @@ public record Dataflow : Command
     [UsedImplicitly]
     public class Helper
     {
+        readonly ICommandDispatcher _commandDispatcher;
+
+        public Helper( ICommandDispatcher commandDispatcher )
+        {
+            _commandDispatcher = commandDispatcher ?? throw new ArgumentNullException( nameof(commandDispatcher) );
+        }
+
         /// <summary>
         /// Builds the options to use for all dataflow blocks.
         /// </summary>
@@ -64,6 +78,12 @@ public record Dataflow : Command
         {
             PropagateCompletion = true
         };
+
+        public virtual Task<ISourceReader> GetSourceReader( IEnumerable<Source> sources, CancellationToken cancellationToken )
+        {
+            // todo: translate collection to an aggregate source
+            throw new NotImplementedException();
+        }
     }
 
     /// <summary>
@@ -108,7 +128,14 @@ public record Dataflow : Command
 
             using var link = buffer.LinkTo( terminus, linkOptions );
 
-            // todo: send records to dataflow
+            var reader = await _helper.GetSourceReader( command.Sources, cts.Token );
+
+            // send records to dataflow
+            await foreach ( var record in reader.Read( cts.Token ) )
+            {
+                if ( cts.IsCancellationRequested ) break;
+                await buffer.SendAsync( record, cts.Token );
+            }
 
             buffer.Complete();
             await terminus.Completion;

@@ -57,4 +57,31 @@ public class ValidatorTests
             result.ShouldNotHaveValidationErrorFor( _ => _.MaxDegreeOfParallelism );
         }
     }
+
+    public class Sources : ValidatorTests
+    {
+        [Fact]
+        public async Task cannot_be_null()
+        {
+            instance = instance with { Sources = null! };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.Sources );
+        }
+
+        [Fact]
+        public async Task cannot_be_empty()
+        {
+            instance.Sources.Clear();
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.Sources );
+        }
+
+        [Fact]
+        public async Task valid_when_given_contents()
+        {
+            instance = new() { Sources = { new FakeSource() } };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.Sources );
+        }
+    }
 }
