@@ -61,6 +61,7 @@ host.UseLamar( registry =>
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandCancellationDecorator<,>) );
     registry.For( typeof(IActionFactory) ).DecorateAllWith( typeof(CancellationActionDecorator) );
     registry.For( typeof(ISourceReaderFactory<>) ).DecorateAllWith( typeof(SourceReaderFactoryValidationDecorator<>) );
+    registry.For( typeof(ISourceReaderFactory<>) ).DecorateAllWith( typeof(SourceReaderFactoryCancellationDecorator<>) );
 
     // register background task to run
     registry.AddHostedService<Program>();

@@ -23,4 +23,10 @@
     </Content>
   </ItemGroup>
   
+  <ItemGroup>
+    <!-- allow access to test project to avoid unnecessary public modifiers -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Shipwright.Test</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>
