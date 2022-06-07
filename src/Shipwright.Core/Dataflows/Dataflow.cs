@@ -40,36 +40,66 @@ public record Dataflow : Command
     }
 
     /// <summary>
+    /// Helper class for handler execution.
+    /// </summary>
+    [UsedImplicitly]
+    public class Helper
+    {
+        /// <summary>
+        /// Builds the options to use for all dataflow blocks.
+        /// </summary>
+        /// <param name="dataflow">Dataflow command for which to build options.</param>
+        /// <param name="cancellationToken">Cancellation token to include in options.</param>
+        /// <returns>The completed dataflow options.</returns>
+        public virtual ExecutionDataflowBlockOptions GetDataflowBlockOptions( Dataflow dataflow, CancellationToken cancellationToken ) => new()
+        {
+            MaxDegreeOfParallelism = dataflow.MaxDegreeOfParallelism,
+            CancellationToken = cancellationToken
+        };
+
+        /// <summary>
+        /// Builds the options to use for all dataflow links.
+        /// </summary>
+        public virtual DataflowLinkOptions GetDataflowLinkOptions() => new()
+        {
+            PropagateCompletion = true
+        };
+    }
+
+    /// <summary>
     /// Handler for the <see cref="Dataflow"/> command.
     /// </summary>
     [UsedImplicitly]
     public class Handler : CommandHandler<Dataflow>
     {
+        readonly Helper _helper;
+
+        public Handler( Helper helper )
+        {
+            _helper = helper ?? throw new ArgumentNullException( nameof(helper) );
+        }
+
         protected override async Task ExecuteCommand( Dataflow command, CancellationToken cancellationToken )
         {
             if ( command == null ) throw new ArgumentNullException( nameof(command) );
 
-            var executionOptions = new ExecutionDataflowBlockOptions
-            {
-                MaxDegreeOfParallelism = command.MaxDegreeOfParallelism,
-                CancellationToken = cancellationToken,
-            };
+            // get a source linked to the existing cancellation token
+            // this will allow us to cancel the dataflow on unhandled exceptions
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource( cancellationToken );
 
-            var linkOptions = new DataflowLinkOptions
-            {
-                PropagateCompletion = true,
-            };
+            var blockOptions = _helper.GetDataflowBlockOptions( command, cts.Token );
+            var linkOptions = _helper.GetDataflowLinkOptions();
 
-            var buffer = new BufferBlock<Record>( executionOptions );
+            var buffer = new BufferBlock<Record>( blockOptions );
             var transform = new TransformBlock<Record, Record>( record =>
             {
                 // todo: define record transformations
                 return record;
-            }, executionOptions );
+            }, blockOptions );
             var terminus = new ActionBlock<Record>( record =>
             {
                 // todo: define per-record post-processing
-            }, executionOptions );
+            }, blockOptions );
 
             using var transformLink = buffer.LinkTo( transform, linkOptions );
             using var terminusLink = transform.LinkTo( terminus, linkOptions );
