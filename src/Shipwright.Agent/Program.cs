@@ -13,6 +13,8 @@ using Shipwright.Actions;
 using Shipwright.Actions.Internal;
 using Shipwright.Commands;
 using Shipwright.Commands.Internal;
+using Shipwright.Dataflows.Sources;
+using Shipwright.Dataflows.Sources.Internal;
 
 var host = Host.CreateDefaultBuilder( args );
 
@@ -49,6 +51,7 @@ host.UseLamar( registry =>
         scanner.WithDefaultConventions();
         scanner.ConnectImplementationsToTypesClosing( typeof(ICommandHandler<,>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(IValidator<>) );
+        scanner.ConnectImplementationsToTypesClosing( typeof(ISourceReaderFactory<>) );
 
         // add all discovered actions by type name
         scanner.AddAllTypesOf<IActionFactory>().NameBy( type => type.Name );
@@ -57,6 +60,7 @@ host.UseLamar( registry =>
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandValidationDecorator<,>) );
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandCancellationDecorator<,>) );
     registry.For( typeof(IActionFactory) ).DecorateAllWith( typeof(CancellationActionDecorator) );
+    registry.For( typeof(ISourceReaderFactory<>) ).DecorateAllWith( typeof(SourceReaderFactoryValidationDecorator<>) );
 
     // register background task to run
     registry.AddHostedService<Program>();

@@ -8,7 +8,7 @@ namespace Shipwright.Dataflows.Sources;
 /// Defines a factory for creating a data source reader for a specific data source.
 /// </summary>
 /// <typeparam name="TSource">Type of data source for which the factory can create readers.</typeparam>
-public interface ISourceReaderFactory<TSource>
+public interface ISourceReaderFactory<TSource> where TSource : Source
 {
     /// <summary>
     /// Creates a reader for the given data source.
