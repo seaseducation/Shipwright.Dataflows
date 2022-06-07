@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using FluentValidation;
+using Identifiable;
 using Shipwright.Commands;
 using Shipwright.Dataflows.Sources;
 using System.Threading.Tasks.Dataflow;
@@ -16,7 +17,7 @@ public record Dataflow : Command
 {
     /// <summary>
     /// Unique name describing the dataflow.
-    /// Logging for all records within a dataflow will be grouped by this name.
+    /// Logging for all dataflow instances will be grouped by this name.
     /// </summary>
     public string Name { get; init; } = string.Empty;
 
@@ -52,11 +53,11 @@ public record Dataflow : Command
     [UsedImplicitly]
     public class Helper
     {
-        readonly ICommandDispatcher _commandDispatcher;
+        readonly ISourceReaderFactory _readerFactory;
 
-        public Helper( ICommandDispatcher commandDispatcher )
+        public Helper( ISourceReaderFactory readerFactory )
         {
-            _commandDispatcher = commandDispatcher ?? throw new ArgumentNullException( nameof(commandDispatcher) );
+            _readerFactory = readerFactory ?? throw new ArgumentNullException( nameof(readerFactory) );
         }
 
         /// <summary>
