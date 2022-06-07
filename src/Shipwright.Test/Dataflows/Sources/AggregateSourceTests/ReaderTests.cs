@@ -29,7 +29,7 @@ public class ReaderTests
         [Fact]
         public async Task returns_records_from_all_child_readers()
         {
-            var fixture = new Fixture();
+            var fixture = new Fixture().WithDataflowCustomization();
             var expected = new List<Record>();
 
             foreach ( var reader in readers )

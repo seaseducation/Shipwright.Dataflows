@@ -27,13 +27,14 @@ public class SourceReaderCancellationDecoratorTests
         CancellationToken cancellationToken;
         ValueTask<List<Record>> method() => instance().Read( cancellationToken ).ToListAsync();
 
+        readonly Fixture fixture = new Fixture().WithDataflowCustomization();
         public class WhenCanceled : Read
         {
             [Fact]
             public async Task returns_no_records()
             {
                 cancellationToken = new( true );
-                var records = new Fixture().CreateMany<Record>();
+                var records = fixture.CreateMany<Record>();
                 inner.Setup( _ => _.Read( cancellationToken ) ).Returns( records.ToAsyncEnumerable() );
 
                 var actual = await method();
@@ -47,7 +48,7 @@ public class SourceReaderCancellationDecoratorTests
             public async Task returns_records_from_decorated_reader()
             {
                 cancellationToken = new( false );
-                var records = new Fixture().CreateMany<Record>().ToArray();
+                var records = fixture.CreateMany<Record>().ToArray();
                 inner.Setup( _ => _.Read( cancellationToken ) ).Returns( records.ToAsyncEnumerable() );
 
                 var actual = await method();
