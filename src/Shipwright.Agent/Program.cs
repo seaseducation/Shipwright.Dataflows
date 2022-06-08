@@ -15,6 +15,7 @@ using Shipwright.Commands;
 using Shipwright.Commands.Internal;
 using Shipwright.Dataflows.Sources;
 using Shipwright.Dataflows.Sources.Internal;
+using Shipwright.Dataflows.Transformations;
 
 var host = Host.CreateDefaultBuilder( args );
 
@@ -52,6 +53,7 @@ host.UseLamar( registry =>
         scanner.ConnectImplementationsToTypesClosing( typeof(ICommandHandler<,>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(IValidator<>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(ISourceReaderFactory<>) );
+        scanner.ConnectImplementationsToTypesClosing( typeof(ITransformationHandlerFactory<>) );
 
         // add all discovered actions by type name
         scanner.AddAllTypesOf<IActionFactory>().NameBy( type => type.Name );
