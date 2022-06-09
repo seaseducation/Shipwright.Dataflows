@@ -13,10 +13,9 @@ public interface ITransformationHandlerFactory
     /// Locates and invokes the factory for the given transformation.
     /// </summary>
     /// <param name="transformation">Transformation for which to create a handler.</param>
-    /// <param name="dataflow">Dataflow in which the transformation will be executed.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The handler for the given transformation.</returns>
-    public Task<ITransformationHandler> Create( Transformation transformation, Dataflow dataflow, CancellationToken cancellationToken );
+    public Task<ITransformationHandler> Create( Transformation transformation, CancellationToken cancellationToken );
 }
 
 /// <summary>
@@ -29,8 +28,7 @@ public interface ITransformationHandlerFactory<TTransformation> where TTransform
     /// Builds a handler for the given transformation.
     /// </summary>
     /// <param name="transformation">Transformation for which to create a handler.</param>
-    /// <param name="dataflow">Dataflow in which the transformation will be executed.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The handler for the given transformation.</returns>
-    public Task<ITransformationHandler> Create( TTransformation transformation, Dataflow dataflow, CancellationToken cancellationToken );
+    public Task<ITransformationHandler> Create( TTransformation transformation, CancellationToken cancellationToken );
 }

@@ -19,15 +19,14 @@ public class TransformationHandlerFactory : ITransformationHandlerFactory
         _container = container ?? throw new ArgumentNullException( nameof(container) );
     }
 
-    public async Task<ITransformationHandler> Create( Transformation transformation, Dataflow dataflow, CancellationToken cancellationToken )
+    public async Task<ITransformationHandler> Create( Transformation transformation, CancellationToken cancellationToken )
     {
         if ( transformation == null ) throw new ArgumentNullException( nameof(transformation) );
-        if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
 
         var transformationType = transformation.GetType();
         var factoryType = typeof(ITransformationHandlerFactory<>).MakeGenericType( transformationType );
         dynamic factory = _container.GetInstance( factoryType );
 
-        return await factory.Create( (dynamic)transformation, dataflow, cancellationToken );
+        return await factory.Create( (dynamic)transformation, cancellationToken );
     }
 }

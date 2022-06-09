@@ -25,9 +25,8 @@ public class TransformationHandlerFactoryTests
     public class Create : TransformationHandlerFactoryTests
     {
         Transformation transformation = new FakeTransformation();
-        Dataflow dataflow = new();
         CancellationToken cancellationToken;
-        Task<ITransformationHandler> method() => instance().Create( transformation, dataflow, cancellationToken );
+        Task<ITransformationHandler> method() => instance().Create( transformation, cancellationToken );
 
         [Theory]
         [BooleanCases]
@@ -40,22 +39,13 @@ public class TransformationHandlerFactoryTests
 
         [Theory]
         [BooleanCases]
-        public async Task requires_dataflow( bool canceled )
-        {
-            cancellationToken = new( canceled );
-            dataflow = null!;
-            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
-        }
-
-        [Theory]
-        [BooleanCases]
         public async Task returns_handler_from_located_factory( bool canceled )
         {
             cancellationToken = new( canceled );
             var expected = new Mock<ITransformationHandler>( MockBehavior.Strict ).Object;
             var factory = new Mock<ITransformationHandlerFactory<FakeTransformation>>( MockBehavior.Strict );
             container.Setup( _ => _.GetInstance( typeof(ITransformationHandlerFactory<FakeTransformation>) ) ).Returns( factory.Object );
-            factory.Setup( _ => _.Create( (FakeTransformation)transformation, dataflow, cancellationToken ) ).ReturnsAsync( expected );
+            factory.Setup( _ => _.Create( (FakeTransformation)transformation, cancellationToken ) ).ReturnsAsync( expected );
 
             var actual = await method();
             actual.Should().Be( expected );
