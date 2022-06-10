@@ -69,6 +69,13 @@ public record Dataflow : Command
         }
 
         /// <summary>
+        /// Creates a <see cref="CancellationTokenSource"/> linked to the given cancellation token.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for which to return a linked source.</param>
+        public virtual CancellationTokenSource CreateLinkedTokenSource( CancellationToken cancellationToken ) =>
+            CancellationTokenSource.CreateLinkedTokenSource( cancellationToken );
+
+        /// <summary>
         /// Builds the options to use for all dataflow blocks.
         /// </summary>
         /// <param name="dataflow">Dataflow command for which to build options.</param>
@@ -97,6 +104,12 @@ public record Dataflow : Command
         public virtual Task<ISourceReader> GetSourceReader( Dataflow dataflow, CancellationToken cancellationToken ) =>
             _readerFactory.Create( new AggregateSource { Sources = dataflow.Sources }, dataflow, cancellationToken );
 
+        /// <summary>
+        /// Builds the dataflow transformation handler for the given dataflow.
+        /// </summary>
+        /// <param name="dataflow">Dataflow whose transformation handler to create.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The completed transformation handler.</returns>
         public virtual Task<ITransformationHandler> GetTransformationHandler( Dataflow dataflow, CancellationToken cancellationToken ) =>
             _transformationHandlerFactory.Create( new AggregateTransformation { Transformations = dataflow.Transformations }, cancellationToken );
     }
@@ -120,10 +133,10 @@ public record Dataflow : Command
 
             // get a source linked to the existing cancellation token
             // this will allow us to cancel the dataflow on unhandled exceptions
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource( cancellationToken );
+            using var cts = _helper.CreateLinkedTokenSource( cancellationToken );
 
             var reader = await _helper.GetSourceReader( command, cts.Token );
-            await using var transformationHandler = await _helper.GetTransformationHandler( command, cancellationToken );
+            await using var transformationHandler = await _helper.GetTransformationHandler( command, cts.Token );
 
             var blockOptions = _helper.GetDataflowBlockOptions( command, cts.Token );
             var linkOptions = _helper.GetDataflowLinkOptions();
@@ -141,7 +154,14 @@ public record Dataflow : Command
                 {
                     // ReSharper disable once AccessToDisposedClosure
                     cts.Cancel();
-                    if ( e is not OperationCanceledException ) throw;
+
+                    // swallow cancellation exceptions - we're already cancelling
+                    switch ( e )
+                    {
+                        case TaskCanceledException:
+                        case OperationCanceledException: break;
+                        default: throw;
+                    }
                 }
             }
 
