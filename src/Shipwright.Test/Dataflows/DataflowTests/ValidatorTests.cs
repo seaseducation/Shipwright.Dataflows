@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using AutoFixture.Xunit2;
+using Shipwright.Dataflows.Transformations;
 
 namespace Shipwright.Dataflows.DataflowTests;
 
@@ -82,6 +83,33 @@ public class ValidatorTests
             instance = new() { Sources = { new FakeSource() } };
             var result = await validator.TestValidateAsync( instance );
             result.ShouldNotHaveValidationErrorFor( _ => _.Sources );
+        }
+    }
+
+    public class Transformations : ValidatorTests
+    {
+        [Fact]
+        public async Task cannot_be_null()
+        {
+            instance = instance with { Transformations = null! };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.Transformations );
+        }
+
+        [Fact]
+        public async Task cannot_be_empty()
+        {
+            instance.Transformations.Clear();
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.Transformations );
+        }
+
+        [Fact]
+        public async Task valid_when_given_contents()
+        {
+            instance = new() { Transformations = { new FakeTransformation() } };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.Transformations );
         }
     }
 }

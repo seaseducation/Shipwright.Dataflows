@@ -3,9 +3,9 @@
 // All Rights Reserved.
 
 using FluentValidation;
-using Identifiable;
 using Shipwright.Commands;
 using Shipwright.Dataflows.Sources;
+using Shipwright.Dataflows.Transformations;
 using System.Threading.Tasks.Dataflow;
 
 namespace Shipwright.Dataflows;
@@ -34,6 +34,11 @@ public record Dataflow : Command
     public ICollection<Source> Sources { get; init; } = new List<Source>();
 
     /// <summary>
+    /// Collection of transformations to execute against records in the dataflow.
+    /// </summary>
+    public ICollection<Transformation> Transformations { get; init; } = new List<Transformation>();
+
+        /// <summary>
     /// Validator for the <see cref="Dataflow"/> command.
     /// </summary>
     [UsedImplicitly]
@@ -44,6 +49,7 @@ public record Dataflow : Command
             RuleFor( _ => _.Name ).NotEmpty();
             RuleFor( _ => _.MaxDegreeOfParallelism ).GreaterThan( 0 ).When( _ => _.MaxDegreeOfParallelism != -1 );
             RuleFor( _ => _.Sources ).NotEmpty();
+            RuleFor( _ => _.Transformations ).NotEmpty();
         }
     }
 
@@ -54,10 +60,12 @@ public record Dataflow : Command
     public class Helper
     {
         readonly ISourceReaderFactory _readerFactory;
+        readonly ITransformationHandlerFactory _transformationHandlerFactory;
 
-        public Helper( ISourceReaderFactory readerFactory )
+        public Helper( ISourceReaderFactory readerFactory, ITransformationHandlerFactory transformationHandlerFactory )
         {
             _readerFactory = readerFactory ?? throw new ArgumentNullException( nameof(readerFactory) );
+            _transformationHandlerFactory = transformationHandlerFactory ?? throw new ArgumentNullException( nameof(transformationHandlerFactory) );
         }
 
         /// <summary>
@@ -88,6 +96,9 @@ public record Dataflow : Command
         /// <returns>The completed data source reader.</returns>
         public virtual Task<ISourceReader> GetSourceReader( Dataflow dataflow, CancellationToken cancellationToken ) =>
             _readerFactory.Create( new AggregateSource { Sources = dataflow.Sources }, dataflow, cancellationToken );
+
+        public virtual Task<ITransformationHandler> GetTransformationHandler( Dataflow dataflow, CancellationToken cancellationToken ) =>
+            _transformationHandlerFactory.Create( new AggregateTransformation { Transformations = dataflow.Transformations }, cancellationToken );
     }
 
     /// <summary>
@@ -111,16 +122,19 @@ public record Dataflow : Command
             // this will allow us to cancel the dataflow on unhandled exceptions
             using var cts = CancellationTokenSource.CreateLinkedTokenSource( cancellationToken );
 
+            var reader = await _helper.GetSourceReader( command, cts.Token );
+            await using var transformationHandler = await _helper.GetTransformationHandler( command, cancellationToken );
+
             var blockOptions = _helper.GetDataflowBlockOptions( command, cts.Token );
             var linkOptions = _helper.GetDataflowLinkOptions();
 
-            var buffer = new BufferBlock<Record>( blockOptions );
-            var terminus = new ActionBlock<Record>( async record =>
+            async Task terminusAction( Record record )
             {
                 try
                 {
-                    throw new InvalidOperationException( "This was expected" );
-                    // todo: define per-record processing
+                    // execute per-record transformations
+                    await transformationHandler.Transform( record, cts.Token )!;
+                    // todo: post record processing
                 }
 
                 catch ( Exception e )
@@ -129,11 +143,12 @@ public record Dataflow : Command
                     cts.Cancel();
                     if ( e is not OperationCanceledException ) throw;
                 }
-            }, blockOptions );
+            }
+
+            var buffer = new BufferBlock<Record>( blockOptions );
+            var terminus = new ActionBlock<Record>( terminusAction, blockOptions );
 
             using var link = buffer.LinkTo( terminus, linkOptions );
-
-            var reader = await _helper.GetSourceReader( command, cts.Token );
 
             // send records to dataflow
             await foreach ( var record in reader.Read( cts.Token ) )
