@@ -5,6 +5,7 @@
 using AutoFixture;
 using FluentAssertions;
 using Shipwright.Commands;
+using Shipwright.Dataflows.EventSinks;
 using Shipwright.Dataflows.Sources;
 using Shipwright.Dataflows.Transformations;
 using System.Threading.Tasks.Dataflow;
@@ -15,12 +16,13 @@ public class HandlerTests
 {
     Mock<ISourceReaderFactory> readerFactory = new( MockBehavior.Strict );
     Mock<ITransformationHandlerFactory> transformationHandlerFactory = new( MockBehavior.Strict );
+    Mock<IEventSinkHandlerFactory> eventSinkHandlerFactory = new( MockBehavior.Strict );
     Mock<Dataflow.Helper> helper;
     ICommandHandler<Dataflow> instance() => new Dataflow.Handler( helper?.Object! );
 
     protected HandlerTests()
     {
-        helper = new( MockBehavior.Strict, readerFactory.Object, transformationHandlerFactory.Object );
+        helper = new( MockBehavior.Strict, readerFactory.Object, transformationHandlerFactory.Object, eventSinkHandlerFactory?.Object );
     }
 
     public class Constructor : HandlerTests
@@ -40,7 +42,7 @@ public class HandlerTests
         CancellationToken cancellationToken;
         Task method() => instance().Execute( command, cancellationToken );
 
-        public Execute()
+        protected Execute()
         {
             command = _fixture.Create<Dataflow>();
         }
@@ -66,6 +68,9 @@ public class HandlerTests
                 helper.Setup( _ => _.CreateLinkedTokenSource( cancellationToken ) ).Returns( cts );
                 var linkedToken = cts.Token;
 
+                var eventSinkHandler = new Mock<IEventSinkHandler>( MockBehavior.Strict );
+                helper.Setup( _ => _.GetEventSinkHandler( command, linkedToken ) ).ReturnsAsync( eventSinkHandler.Object );
+
                 var reader = new Mock<ISourceReader>( MockBehavior.Strict );
                 helper.Setup( _ => _.GetSourceReader( command, linkedToken ) ).ReturnsAsync( reader.Object );
                 var transformationHandler = new Mock<ITransformationHandler>( MockBehavior.Strict );
@@ -80,12 +85,19 @@ public class HandlerTests
                 var expected = _fixture.CreateMany<Record>().ToArray();
                 reader.Setup( _ => _.Read( linkedToken ) ).Returns( expected.ToAsyncEnumerable() );
 
-                var actual = new List<Record>();
-                transformationHandler.Setup( _ => _.Transform( Capture.In( actual ), linkedToken ) ).Returns( Task.CompletedTask );
+                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
+
+                var transformed = new List<Record>();
+                var logged = new List<Record>();
+                transformationHandler.Setup( _ => _.Transform( Capture.In( transformed ), linkedToken ) ).Returns( Task.CompletedTask );
+                eventSinkHandler.Setup( _ => _.NotifyRecordCompleted( Capture.In( logged ), linkedToken ) ).Returns( Task.CompletedTask );
                 transformationHandler.Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
 
+                eventSinkHandler.Setup( _ => _.NotifyDataflowCompleted( command, linkedToken ) ).Returns( Task.CompletedTask );
+
                 await method();
-                actual.Should().BeEquivalentTo( expected );
+                transformed.Should().BeEquivalentTo( expected );
+                logged.Should().BeEquivalentTo( expected );
             }
         }
 
@@ -103,6 +115,9 @@ public class HandlerTests
                 helper.Setup( _ => _.CreateLinkedTokenSource( cancellationToken ) ).Returns( cts );
                 var linkedToken = cts.Token;
 
+                var eventSinkHandler = new Mock<IEventSinkHandler>( MockBehavior.Strict );
+                helper.Setup( _ => _.GetEventSinkHandler( command, linkedToken ) ).ReturnsAsync( eventSinkHandler.Object );
+
                 var reader = new Mock<ISourceReader>( MockBehavior.Strict );
                 helper.Setup( _ => _.GetSourceReader( command, linkedToken ) ).ReturnsAsync( reader.Object );
                 var transformationHandler = new Mock<ITransformationHandler>( MockBehavior.Strict );
@@ -113,6 +128,8 @@ public class HandlerTests
 
                 var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
                 helper.Setup( _ => _.GetDataflowLinkOptions() ).Returns( linkOptions );
+
+                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
 
                 var records = _fixture.CreateMany<Record>().ToArray();
                 reader.Setup( _ => _.Read( linkedToken ) ).Returns( records.ToAsyncEnumerable() );
@@ -138,6 +155,9 @@ public class HandlerTests
                 helper.Setup( _ => _.CreateLinkedTokenSource( cancellationToken ) ).Returns( cts );
                 var linkedToken = cts.Token;
 
+                var eventSinkHandler = new Mock<IEventSinkHandler>( MockBehavior.Strict );
+                helper.Setup( _ => _.GetEventSinkHandler( command, linkedToken ) ).ReturnsAsync( eventSinkHandler.Object );
+
                 var reader = new Mock<ISourceReader>( MockBehavior.Strict );
                 helper.Setup( _ => _.GetSourceReader( command, linkedToken ) ).ReturnsAsync( reader.Object );
                 var transformationHandler = new Mock<ITransformationHandler>( MockBehavior.Strict );
@@ -149,12 +169,16 @@ public class HandlerTests
                 var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
                 helper.Setup( _ => _.GetDataflowLinkOptions() ).Returns( linkOptions );
 
+                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
+
                 var records = _fixture.CreateMany<Record>().ToArray();
                 reader.Setup( _ => _.Read( linkedToken ) ).Returns( records.ToAsyncEnumerable() );
 
                 transformationHandler.Setup( _ => _.Transform( It.IsAny<Record>(), linkedToken ) )
                     .Returns( Task.CompletedTask )
                     .Callback( () => cts.Cancel() );
+
+                eventSinkHandler.Setup( _ => _.NotifyRecordCompleted( It.IsAny<Record>(), linkedToken ) ).Returns( Task.CompletedTask );
 
                 transformationHandler.Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
 
@@ -177,6 +201,9 @@ public class HandlerTests
                 helper.Setup( _ => _.CreateLinkedTokenSource( cancellationToken ) ).Returns( cts );
                 var linkedToken = cts.Token;
 
+                var eventSinkHandler = new Mock<IEventSinkHandler>( MockBehavior.Strict );
+                helper.Setup( _ => _.GetEventSinkHandler( command, linkedToken ) ).ReturnsAsync( eventSinkHandler.Object );
+
                 var reader = new Mock<ISourceReader>( MockBehavior.Strict );
                 helper.Setup( _ => _.GetSourceReader( command, linkedToken ) ).ReturnsAsync( reader.Object );
                 var transformationHandler = new Mock<ITransformationHandler>( MockBehavior.Strict );
@@ -187,6 +214,8 @@ public class HandlerTests
 
                 var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
                 helper.Setup( _ => _.GetDataflowLinkOptions() ).Returns( linkOptions );
+
+                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
 
                 var records = _fixture.CreateMany<Record>().ToArray();
                 reader.Setup( _ => _.Read( linkedToken ) ).Returns( records.ToAsyncEnumerable() );

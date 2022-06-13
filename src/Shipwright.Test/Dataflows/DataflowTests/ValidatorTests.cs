@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using AutoFixture.Xunit2;
+using Shipwright.Dataflows.EventSinks;
 using Shipwright.Dataflows.Transformations;
 
 namespace Shipwright.Dataflows.DataflowTests;
@@ -110,6 +111,33 @@ public class ValidatorTests
             instance = new() { Transformations = { new FakeTransformation() } };
             var result = await validator.TestValidateAsync( instance );
             result.ShouldNotHaveValidationErrorFor( _ => _.Transformations );
+        }
+    }
+
+    public class EventSinks : ValidatorTests
+    {
+        [Fact]
+        public async Task invalid_when_null()
+        {
+            instance = new() { EventSinks = null! };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.EventSinks );
+        }
+
+        [Fact]
+        public async Task invalid_when_empty()
+        {
+            instance = new() { EventSinks = {} };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.EventSinks );
+        }
+
+        [Fact]
+        public async Task valid_when_given_contents()
+        {
+            instance = new() { EventSinks = { new FakeEventSink() } };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.EventSinks );
         }
     }
 }

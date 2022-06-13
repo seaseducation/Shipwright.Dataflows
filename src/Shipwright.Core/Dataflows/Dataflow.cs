@@ -4,6 +4,7 @@
 
 using FluentValidation;
 using Shipwright.Commands;
+using Shipwright.Dataflows.EventSinks;
 using Shipwright.Dataflows.Sources;
 using Shipwright.Dataflows.Transformations;
 using System.Threading.Tasks.Dataflow;
@@ -38,7 +39,12 @@ public record Dataflow : Command
     /// </summary>
     public ICollection<Transformation> Transformations { get; init; } = new List<Transformation>();
 
-        /// <summary>
+    /// <summary>
+    /// Collection of event sinks to notify of dataflow events.
+    /// </summary>
+    public ICollection<EventSink> EventSinks { get; init; } = new List<EventSink>();
+
+    /// <summary>
     /// Validator for the <see cref="Dataflow"/> command.
     /// </summary>
     [UsedImplicitly]
@@ -50,6 +56,7 @@ public record Dataflow : Command
             RuleFor( _ => _.MaxDegreeOfParallelism ).GreaterThan( 0 ).When( _ => _.MaxDegreeOfParallelism != -1 );
             RuleFor( _ => _.Sources ).NotEmpty();
             RuleFor( _ => _.Transformations ).NotEmpty();
+            RuleFor( _ => _.EventSinks ).NotEmpty();
         }
     }
 
@@ -61,11 +68,13 @@ public record Dataflow : Command
     {
         readonly ISourceReaderFactory _readerFactory;
         readonly ITransformationHandlerFactory _transformationHandlerFactory;
+        readonly IEventSinkHandlerFactory _eventSinkHandlerFactory;
 
-        public Helper( ISourceReaderFactory readerFactory, ITransformationHandlerFactory transformationHandlerFactory )
+        public Helper( ISourceReaderFactory readerFactory, ITransformationHandlerFactory transformationHandlerFactory, IEventSinkHandlerFactory eventSinkHandlerFactory )
         {
             _readerFactory = readerFactory ?? throw new ArgumentNullException( nameof(readerFactory) );
             _transformationHandlerFactory = transformationHandlerFactory ?? throw new ArgumentNullException( nameof(transformationHandlerFactory) );
+            _eventSinkHandlerFactory = eventSinkHandlerFactory ?? throw new ArgumentNullException( nameof(eventSinkHandlerFactory) );
         }
 
         /// <summary>
@@ -84,7 +93,8 @@ public record Dataflow : Command
         public virtual ExecutionDataflowBlockOptions GetDataflowBlockOptions( Dataflow dataflow, CancellationToken cancellationToken ) => new()
         {
             MaxDegreeOfParallelism = dataflow.MaxDegreeOfParallelism,
-            CancellationToken = cancellationToken
+            CancellationToken = cancellationToken,
+            BoundedCapacity = dataflow.MaxDegreeOfParallelism,
         };
 
         /// <summary>
@@ -112,6 +122,15 @@ public record Dataflow : Command
         /// <returns>The completed transformation handler.</returns>
         public virtual Task<ITransformationHandler> GetTransformationHandler( Dataflow dataflow, CancellationToken cancellationToken ) =>
             _transformationHandlerFactory.Create( new AggregateTransformation { Transformations = dataflow.Transformations }, cancellationToken );
+
+        /// <summary>
+        /// Builds the dataflow event sink handler for the given dataflow.
+        /// </summary>
+        /// <param name="dataflow">Dataflow whose event sink handler to create.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The completed event sink handler.</returns>
+        public virtual Task<IEventSinkHandler> GetEventSinkHandler( Dataflow dataflow, CancellationToken cancellationToken ) =>
+            _eventSinkHandlerFactory.Create( new AggregateEventSink { EventSinks = dataflow.EventSinks }, cancellationToken );
     }
 
     /// <summary>
@@ -135,6 +154,7 @@ public record Dataflow : Command
             // this will allow us to cancel the dataflow on unhandled exceptions
             using var cts = _helper.CreateLinkedTokenSource( cancellationToken );
 
+            var eventSinkHandler = await _helper.GetEventSinkHandler( command, cts.Token );
             var reader = await _helper.GetSourceReader( command, cts.Token );
             await using var transformationHandler = await _helper.GetTransformationHandler( command, cts.Token );
 
@@ -146,8 +166,8 @@ public record Dataflow : Command
                 try
                 {
                     // execute per-record transformations
-                    await transformationHandler.Transform( record, cts.Token )!;
-                    // todo: post record processing
+                    await transformationHandler.Transform( record, cts.Token );
+                    await eventSinkHandler.NotifyRecordCompleted( record, cts.Token );
                 }
 
                 catch ( Exception e )
@@ -170,6 +190,8 @@ public record Dataflow : Command
 
             using var link = buffer.LinkTo( terminus, linkOptions );
 
+            await eventSinkHandler.NotifyDataflowStarting( command, cts.Token );
+
             // send records to dataflow
             await foreach ( var record in reader.Read( cts.Token ) )
             {
@@ -180,7 +202,7 @@ public record Dataflow : Command
             buffer.Complete();
             await terminus.Completion;
 
-            // todo: dataflow post-processing
+            await eventSinkHandler.NotifyDataflowCompleted( command, cts.Token );
         }
     }
 }
