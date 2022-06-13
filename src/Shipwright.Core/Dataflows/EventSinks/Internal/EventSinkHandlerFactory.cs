@@ -19,14 +19,15 @@ public class EventSinkHandlerFactory : IEventSinkHandlerFactory
         _container = container ?? throw new ArgumentNullException( nameof(container) );
     }
 
-    public async Task<IEventSinkHandler> Create( EventSink eventSink, CancellationToken cancellationToken )
+    public async Task<IEventSinkHandler> Create( EventSink eventSink, Dataflow dataflow, CancellationToken cancellationToken )
     {
         if ( eventSink == null ) throw new ArgumentNullException( nameof(eventSink) );
+        if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
 
         var eventSinkType = eventSink.GetType();
         var factoryType = typeof(IEventSinkHandlerFactory<>).MakeGenericType( eventSinkType );
         dynamic factory = _container.GetInstance( factoryType );
 
-        return await factory.Create( (dynamic)eventSink, cancellationToken );
+        return await factory.Create( (dynamic)eventSink, dataflow, cancellationToken );
     }
 }

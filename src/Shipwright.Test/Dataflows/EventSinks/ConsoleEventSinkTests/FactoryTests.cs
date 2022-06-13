@@ -25,8 +25,9 @@ public class FactoryTests
     public class Create : FactoryTests
     {
         ConsoleEventSink eventSink = new( LogLevel.Warning );
+        Dataflow dataflow = new();
         CancellationToken cancellationToken;
-        Task<IEventSinkHandler> method() => instance().Create( eventSink, cancellationToken );
+        Task<IEventSinkHandler> method() => instance().Create( eventSink, dataflow, cancellationToken );
 
         [Theory]
         [BooleanCases]
@@ -39,6 +40,15 @@ public class FactoryTests
 
         [Theory]
         [BooleanCases]
+        public async Task requires_dataflow( bool canceled )
+        {
+            cancellationToken = new( canceled );
+            dataflow = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
+        }
+
+        [Theory]
+        [BooleanCases]
         public async Task returns_handler( bool canceled )
         {
             cancellationToken = new( canceled );
@@ -46,7 +56,8 @@ public class FactoryTests
 
             var typed = actual.Should().BeOfType<ConsoleEventSink.Handler>().Subject;
             typed._logger.Should().Be( logger.Object );
-            typed._minimumLevel.Should().Be( eventSink.MinimumLevel );
+            typed._dataflow.Should().Be( dataflow );
+            typed._eventSink.Should().Be( eventSink );
         }
     }
 }

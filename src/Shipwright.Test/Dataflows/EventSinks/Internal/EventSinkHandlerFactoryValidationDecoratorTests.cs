@@ -34,8 +34,9 @@ public class EventSinkHandlerFactoryValidationDecoratorTests
     public abstract class Create : EventSinkHandlerFactoryValidationDecoratorTests
     {
         FakeEventSink eventSink = new();
+        Dataflow dataflow = new();
         CancellationToken cancellationToken;
-        Task<IEventSinkHandler> method() => instance().Create( eventSink, cancellationToken );
+        Task<IEventSinkHandler> method() => instance().Create( eventSink, dataflow, cancellationToken );
 
         readonly Fixture _fixture = new();
 
@@ -46,6 +47,15 @@ public class EventSinkHandlerFactoryValidationDecoratorTests
             cancellationToken = new( canceled );
             eventSink = null!;
             await Assert.ThrowsAsync<ArgumentNullException>( nameof(eventSink), method );
+        }
+
+        [Theory]
+        [BooleanCases]
+        public async Task requires_dataflow( bool canceled )
+        {
+            cancellationToken = new( canceled );
+            dataflow = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
         }
 
         public class WhenNotValid : Create
@@ -77,7 +87,7 @@ public class EventSinkHandlerFactoryValidationDecoratorTests
                 var errors = Array.Empty<ValidationFailure>();
                 var result = new ValidationResult( errors );
                 validator.Setup( _ => _.ValidateAsync( eventSink, cancellationToken ) ).ReturnsAsync( result );
-                inner.Setup( _ => _.Create( eventSink, cancellationToken ) ).ReturnsAsync( expected );
+                inner.Setup( _ => _.Create( eventSink, dataflow, cancellationToken ) ).ReturnsAsync( expected );
 
                 var actual = await method();
                 actual.Should().Be( expected );

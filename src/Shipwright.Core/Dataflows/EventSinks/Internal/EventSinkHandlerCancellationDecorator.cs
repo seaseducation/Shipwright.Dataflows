@@ -17,20 +17,16 @@ public class EventSinkHandlerCancellationDecorator : IEventSinkHandler
         _inner = inner ?? throw new ArgumentNullException( nameof(inner) );
     }
 
-    public Task NotifyDataflowStarting( Dataflow dataflow, CancellationToken cancellationToken )
+    public Task NotifyDataflowStarting( CancellationToken cancellationToken )
     {
-        if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
-
         cancellationToken.ThrowIfCancellationRequested();
-        return _inner.NotifyDataflowStarting( dataflow, cancellationToken );
+        return _inner.NotifyDataflowStarting( cancellationToken );
     }
 
-    public Task NotifyDataflowCompleted( Dataflow dataflow, CancellationToken cancellationToken )
+    public Task NotifyDataflowCompleted( CancellationToken cancellationToken )
     {
-        if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
-
         cancellationToken.ThrowIfCancellationRequested();
-        return _inner.NotifyDataflowCompleted( dataflow, cancellationToken );
+        return _inner.NotifyDataflowCompleted( cancellationToken );
     }
 
     public Task NotifyRecordCompleted( Record record, CancellationToken cancellationToken )

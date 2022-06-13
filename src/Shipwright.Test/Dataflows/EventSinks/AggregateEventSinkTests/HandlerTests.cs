@@ -25,20 +25,8 @@ public class HandlerTests
 
     public class NotifyDataflowStarting : HandlerTests
     {
-        Dataflow dataflow;
         CancellationToken cancellationToken;
-        Task method() => instance().NotifyDataflowStarting( dataflow, cancellationToken );
-
-        public NotifyDataflowStarting() => dataflow = _fixture.Create<Dataflow>();
-
-        [Theory]
-        [BooleanCases]
-        public async Task requires_dataflow( bool canceled )
-        {
-            cancellationToken = new( canceled );
-            dataflow = null!;
-            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
-        }
+        Task method() => instance().NotifyDataflowStarting( cancellationToken );
 
         [Theory]
         [BooleanCases]
@@ -48,31 +36,19 @@ public class HandlerTests
             var sequence = new MockSequence();
 
             foreach ( var handler in handlers )
-                handler.InSequence( sequence ).Setup( _ => _.NotifyDataflowStarting( dataflow, cancellationToken ) ).Returns( Task.CompletedTask );
+                handler.InSequence( sequence ).Setup( _ => _.NotifyDataflowStarting( cancellationToken ) ).Returns( Task.CompletedTask );
 
             await method();
 
             foreach ( var handler in handlers )
-                handler.Verify( _ => _.NotifyDataflowStarting( dataflow, cancellationToken ), Times.Once() );
+                handler.Verify( _ => _.NotifyDataflowStarting( cancellationToken ), Times.Once() );
         }
     }
 
     public class NotifyDataflowCompleted : HandlerTests
     {
-        Dataflow dataflow;
         CancellationToken cancellationToken;
-        Task method() => instance().NotifyDataflowCompleted( dataflow, cancellationToken );
-
-        public NotifyDataflowCompleted() => dataflow = _fixture.Create<Dataflow>();
-
-        [Theory]
-        [BooleanCases]
-        public async Task requires_dataflow( bool canceled )
-        {
-            cancellationToken = new( canceled );
-            dataflow = null!;
-            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
-        }
+        Task method() => instance().NotifyDataflowCompleted( cancellationToken );
 
         [Theory]
         [BooleanCases]
@@ -82,12 +58,12 @@ public class HandlerTests
             var sequence = new MockSequence();
 
             foreach ( var handler in handlers )
-                handler.InSequence( sequence ).Setup( _ => _.NotifyDataflowCompleted( dataflow, cancellationToken ) ).Returns( Task.CompletedTask );
+                handler.InSequence( sequence ).Setup( _ => _.NotifyDataflowCompleted( cancellationToken ) ).Returns( Task.CompletedTask );
 
             await method();
 
             foreach ( var handler in handlers )
-                handler.Verify( _ => _.NotifyDataflowCompleted( dataflow, cancellationToken ), Times.Once() );
+                handler.Verify( _ => _.NotifyDataflowCompleted( cancellationToken ), Times.Once() );
         }
     }
 

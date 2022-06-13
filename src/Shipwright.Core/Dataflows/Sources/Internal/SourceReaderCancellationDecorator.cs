@@ -22,6 +22,8 @@ public class SourceReaderCancellationDecorator : ISourceReader
 
     public async IAsyncEnumerable<Record> Read( IEventSinkHandler eventSinkHandler, [EnumeratorCancellation] CancellationToken cancellationToken )
     {
+        if ( eventSinkHandler == null ) throw new ArgumentNullException( nameof(eventSinkHandler) );
+        
         await foreach ( var record in _inner.Read( eventSinkHandler, cancellationToken ) )
         {
             if ( cancellationToken.IsCancellationRequested ) break;

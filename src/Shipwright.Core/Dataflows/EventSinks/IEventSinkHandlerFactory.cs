@@ -14,8 +14,9 @@ public interface IEventSinkHandlerFactory<TEventSink> where TEventSink : EventSi
     /// Creates a handler for the given event sink.
     /// </summary>
     /// <param name="eventSink">Event sink for which to create a handler.</param>
+    /// <param name="dataflow">Dataflow to associate with the event sink.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<IEventSinkHandler> Create( TEventSink eventSink, CancellationToken cancellationToken );
+    public Task<IEventSinkHandler> Create( TEventSink eventSink, Dataflow dataflow, CancellationToken cancellationToken );
 }
 
 /// <summary>
@@ -27,6 +28,7 @@ public interface IEventSinkHandlerFactory
     /// Creates a handler for the given event sink.
     /// </summary>
     /// <param name="eventSink">Event sink for which to create a handler.</param>
+    /// <param name="dataflow">Dataflow to associate with the event sink.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<IEventSinkHandler> Create( EventSink eventSink, CancellationToken cancellationToken );
+    public Task<IEventSinkHandler> Create( EventSink eventSink, Dataflow dataflow, CancellationToken cancellationToken );
 }

@@ -27,27 +27,27 @@ public record ConsoleEventSink( LogLevel MinimumLevel = LogLevel.Warning ) : Eve
         // ReSharper disable once InconsistentNaming
         internal readonly ILogger<Dataflow> _logger;
         // ReSharper disable once InconsistentNaming
-        internal readonly LogLevel _minimumLevel;
+        internal readonly Dataflow _dataflow;
+        // ReSharper disable once InconsistentNaming
+        internal readonly ConsoleEventSink _eventSink;
 
-        public Handler( ILogger<Dataflow> logger, LogLevel minimumLevel )
+
+        public Handler( ILogger<Dataflow> logger, Dataflow dataflow, ConsoleEventSink eventSink )
         {
             _logger = logger ?? throw new ArgumentNullException( nameof(logger) );
-            _minimumLevel = minimumLevel;
+            _dataflow = dataflow ?? throw new ArgumentNullException( nameof(dataflow) );
+            _eventSink = eventSink ?? throw new ArgumentNullException( nameof(eventSink) );
         }
 
-        public Task NotifyDataflowStarting( Dataflow dataflow, CancellationToken cancellationToken )
+        public Task NotifyDataflowStarting( CancellationToken cancellationToken )
         {
-            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
-
-            _logger.LogInformation( $"Executing dataflow: {dataflow.Name}" );
+            _logger.LogInformation( $"Executing dataflow: {_dataflow.Name}" );
             return Task.CompletedTask;
         }
 
-        public Task NotifyDataflowCompleted( Dataflow dataflow, CancellationToken cancellationToken )
+        public Task NotifyDataflowCompleted( CancellationToken cancellationToken )
         {
-            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
-
-            _logger.LogInformation( $"Completed dataflow: {dataflow.Name}" );
+            _logger.LogInformation( $"Completed dataflow: {_dataflow.Name}" );
             return Task.CompletedTask;
         }
 
@@ -57,7 +57,7 @@ public record ConsoleEventSink( LogLevel MinimumLevel = LogLevel.Warning ) : Eve
 
             foreach ( var e in record.Events )
             {
-                if ( e.Level >= _minimumLevel )
+                if ( e.Level >= _eventSink.MinimumLevel )
                 {
                     var message = e.Value != null
                         ? $"{e.Description}: {JsonConvert.SerializeObject( e.Value )}"
@@ -83,11 +83,12 @@ public record ConsoleEventSink( LogLevel MinimumLevel = LogLevel.Warning ) : Eve
             _logger = logger ?? throw new ArgumentNullException( nameof(logger) );
         }
 
-        public Task<IEventSinkHandler> Create( ConsoleEventSink eventSink, CancellationToken cancellationToken )
+        public Task<IEventSinkHandler> Create( ConsoleEventSink eventSink, Dataflow dataflow, CancellationToken cancellationToken )
         {
             if ( eventSink == null ) throw new ArgumentNullException( nameof(eventSink) );
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
 
-            IEventSinkHandler handler = new Handler( _logger, eventSink.MinimumLevel );
+            IEventSinkHandler handler = new Handler( _logger, dataflow, eventSink );
             return Task.FromResult( handler );
         }
     }

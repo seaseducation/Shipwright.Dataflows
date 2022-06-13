@@ -3,7 +3,6 @@
 // All Rights Reserved.
 
 using AutoFixture;
-using Microsoft.Extensions.Logging;
 
 namespace Shipwright.Dataflows.EventSinks.Internal;
 
@@ -24,16 +23,8 @@ public abstract class EventSinkHandlerCancellationDecoratorTests
 
     public abstract class NotifyDataflowStarting : EventSinkHandlerCancellationDecoratorTests
     {
-        Dataflow dataflow = new();
         CancellationToken cancellationToken;
-        Task method() => instance().NotifyDataflowStarting( dataflow, cancellationToken );
-
-        [Fact]
-        public async Task requires_dataflow()
-        {
-            dataflow = null!;
-            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
-        }
+        Task method() => instance().NotifyDataflowStarting( cancellationToken );
 
         public class WhenCanceled : NotifyDataflowStarting
         {
@@ -53,26 +44,18 @@ public abstract class EventSinkHandlerCancellationDecoratorTests
             [Fact]
             public async Task calls_inner_handler()
             {
-                inner.Setup( _ => _.NotifyDataflowStarting( dataflow, cancellationToken ) ).Returns( Task.CompletedTask );
+                inner.Setup( _ => _.NotifyDataflowStarting( cancellationToken ) ).Returns( Task.CompletedTask );
                 await method();
 
-                inner.Verify( _ => _.NotifyDataflowStarting( dataflow, cancellationToken ), Times.Once() );
+                inner.Verify( _ => _.NotifyDataflowStarting( cancellationToken ), Times.Once() );
             }
         }
     }
 
     public abstract class NotifyDataflowCompleted : EventSinkHandlerCancellationDecoratorTests
     {
-        Dataflow dataflow = new();
         CancellationToken cancellationToken;
-        Task method() => instance().NotifyDataflowCompleted( dataflow, cancellationToken );
-
-        [Fact]
-        public async Task requires_dataflow()
-        {
-            dataflow = null!;
-            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
-        }
+        Task method() => instance().NotifyDataflowCompleted( cancellationToken );
 
         public class WhenCanceled : NotifyDataflowCompleted
         {
@@ -92,9 +75,9 @@ public abstract class EventSinkHandlerCancellationDecoratorTests
             [Fact]
             public async Task calls_inner_handler()
             {
-                inner.Setup( _ => _.NotifyDataflowCompleted( dataflow, cancellationToken ) ).Returns( Task.CompletedTask );
+                inner.Setup( _ => _.NotifyDataflowCompleted( cancellationToken ) ).Returns( Task.CompletedTask );
                 await method();
-                inner.Verify( _ => _.NotifyDataflowCompleted( dataflow, cancellationToken ), Times.Once() );
+                inner.Verify( _ => _.NotifyDataflowCompleted( cancellationToken ), Times.Once() );
             }
         }
     }

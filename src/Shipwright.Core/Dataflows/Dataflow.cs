@@ -130,7 +130,7 @@ public record Dataflow : Command
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The completed event sink handler.</returns>
         public virtual Task<IEventSinkHandler> GetEventSinkHandler( Dataflow dataflow, CancellationToken cancellationToken ) =>
-            _eventSinkHandlerFactory.Create( new AggregateEventSink { EventSinks = dataflow.EventSinks }, cancellationToken );
+            _eventSinkHandlerFactory.Create( new AggregateEventSink { EventSinks = dataflow.EventSinks }, dataflow, cancellationToken );
     }
 
     /// <summary>
@@ -190,7 +190,7 @@ public record Dataflow : Command
 
             using var link = buffer.LinkTo( terminus, linkOptions );
 
-            await eventSinkHandler.NotifyDataflowStarting( command, cts.Token );
+            await eventSinkHandler.NotifyDataflowStarting( cts.Token );
 
             // send records to dataflow
             await foreach ( var record in reader.Read( eventSinkHandler, cts.Token ) )
@@ -202,7 +202,7 @@ public record Dataflow : Command
             buffer.Complete();
             await terminus.Completion;
 
-            await eventSinkHandler.NotifyDataflowCompleted( command, cts.Token );
+            await eventSinkHandler.NotifyDataflowCompleted( cts.Token );
         }
     }
 }

@@ -44,6 +44,8 @@ public record AggregateSource : Source
 
         public async IAsyncEnumerable<Record> Read( IEventSinkHandler eventSinkHandler, [EnumeratorCancellation] CancellationToken cancellationToken )
         {
+            if ( eventSinkHandler == null ) throw new ArgumentNullException( nameof(eventSinkHandler) );
+
             foreach ( var reader in _readers )
             {
                 await foreach ( var record in reader.Read( eventSinkHandler, cancellationToken ) )

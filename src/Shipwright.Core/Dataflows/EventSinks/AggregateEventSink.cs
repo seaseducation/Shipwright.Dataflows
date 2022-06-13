@@ -40,23 +40,19 @@ public record AggregateEventSink : EventSink
             _handlers = handlers ?? throw new ArgumentNullException( nameof(handlers) );
         }
 
-        public async Task NotifyDataflowStarting( Dataflow dataflow, CancellationToken cancellationToken )
+        public async Task NotifyDataflowStarting( CancellationToken cancellationToken )
         {
-            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
-
             foreach ( var handler in _handlers )
             {
-                await handler.NotifyDataflowStarting( dataflow, cancellationToken );
+                await handler.NotifyDataflowStarting( cancellationToken );
             }
         }
 
-        public async Task NotifyDataflowCompleted( Dataflow dataflow, CancellationToken cancellationToken )
+        public async Task NotifyDataflowCompleted( CancellationToken cancellationToken )
         {
-            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
-
             foreach ( var handler in _handlers )
             {
-                await handler.NotifyDataflowCompleted( dataflow, cancellationToken );
+                await handler.NotifyDataflowCompleted( cancellationToken );
             }
         }
 
@@ -83,15 +79,16 @@ public record AggregateEventSink : EventSink
             _factory = factory ?? throw new ArgumentNullException( nameof(factory) );
         }
 
-        public async Task<IEventSinkHandler> Create( AggregateEventSink eventSink, CancellationToken cancellationToken )
+        public async Task<IEventSinkHandler> Create( AggregateEventSink eventSink, Dataflow dataflow, CancellationToken cancellationToken )
         {
             if ( eventSink == null ) throw new ArgumentNullException( nameof(eventSink) );
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
 
             var handlers = new List<IEventSinkHandler>();
 
             foreach ( var child in eventSink.EventSinks )
             {
-                handlers.Add( await _factory.Create( child, cancellationToken ) );
+                handlers.Add( await _factory.Create( child, dataflow, cancellationToken ) );
             }
 
             return new Handler( handlers );

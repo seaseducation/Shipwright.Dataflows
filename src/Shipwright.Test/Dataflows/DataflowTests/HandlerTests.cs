@@ -85,7 +85,7 @@ public class HandlerTests
                 var expected = _fixture.CreateMany<Record>().ToArray();
                 reader.Setup( _ => _.Read( eventSinkHandler.Object, linkedToken ) ).Returns( expected.ToAsyncEnumerable() );
 
-                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
+                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( linkedToken ) ).Returns( Task.CompletedTask );
 
                 var transformed = new List<Record>();
                 var logged = new List<Record>();
@@ -93,7 +93,7 @@ public class HandlerTests
                 eventSinkHandler.Setup( _ => _.NotifyRecordCompleted( Capture.In( logged ), linkedToken ) ).Returns( Task.CompletedTask );
                 transformationHandler.Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
 
-                eventSinkHandler.Setup( _ => _.NotifyDataflowCompleted( command, linkedToken ) ).Returns( Task.CompletedTask );
+                eventSinkHandler.Setup( _ => _.NotifyDataflowCompleted( linkedToken ) ).Returns( Task.CompletedTask );
 
                 await method();
                 transformed.Should().BeEquivalentTo( expected );
@@ -129,7 +129,7 @@ public class HandlerTests
                 var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
                 helper.Setup( _ => _.GetDataflowLinkOptions() ).Returns( linkOptions );
 
-                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
+                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( linkedToken ) ).Returns( Task.CompletedTask );
 
                 var records = _fixture.CreateMany<Record>().ToArray();
                 reader.Setup( _ => _.Read( eventSinkHandler.Object, linkedToken ) ).Returns( records.ToAsyncEnumerable() );
@@ -169,7 +169,7 @@ public class HandlerTests
                 var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
                 helper.Setup( _ => _.GetDataflowLinkOptions() ).Returns( linkOptions );
 
-                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
+                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( linkedToken ) ).Returns( Task.CompletedTask );
 
                 var records = _fixture.CreateMany<Record>().ToArray();
                 reader.Setup( _ => _.Read( eventSinkHandler.Object, linkedToken ) ).Returns( records.ToAsyncEnumerable() );
@@ -215,7 +215,7 @@ public class HandlerTests
                 var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
                 helper.Setup( _ => _.GetDataflowLinkOptions() ).Returns( linkOptions );
 
-                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
+                eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( linkedToken ) ).Returns( Task.CompletedTask );
 
                 var records = _fixture.CreateMany<Record>().ToArray();
                 reader.Setup( _ => _.Read( eventSinkHandler.Object, linkedToken ) ).Returns( records.ToAsyncEnumerable() );

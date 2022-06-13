@@ -25,8 +25,9 @@ public class EventSinkHandlerFactoryTests
     public class Create : EventSinkHandlerFactoryTests
     {
         EventSink eventSink = new FakeEventSink();
+        Dataflow dataflow = new();
         CancellationToken cancellationToken;
-        Task<IEventSinkHandler> method() => instance().Create( eventSink, cancellationToken );
+        Task<IEventSinkHandler> method() => instance().Create( eventSink, dataflow, cancellationToken );
 
         [Theory]
         [BooleanCases]
@@ -39,13 +40,22 @@ public class EventSinkHandlerFactoryTests
 
         [Theory]
         [BooleanCases]
+        public async Task requires_dataflow( bool canceled )
+        {
+            cancellationToken = new( canceled );
+            dataflow = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
+        }
+
+        [Theory]
+        [BooleanCases]
         public async Task returns_handler_created_by_located_factory( bool canceled )
         {
             cancellationToken = new( canceled );
             var expected = new Mock<IEventSinkHandler>( MockBehavior.Strict ).Object;
             var factory = new Mock<IEventSinkHandlerFactory<FakeEventSink>>( MockBehavior.Strict );
             container.Setup( _ => _.GetInstance( typeof(IEventSinkHandlerFactory<FakeEventSink>) ) ).Returns( factory.Object );
-            factory.Setup( _ => _.Create( (FakeEventSink)eventSink, cancellationToken ) ).ReturnsAsync( expected );
+            factory.Setup( _ => _.Create( (FakeEventSink)eventSink, dataflow, cancellationToken ) ).ReturnsAsync( expected );
 
             var actual = await method();
             actual.Should().Be( expected );

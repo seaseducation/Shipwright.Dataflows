@@ -21,15 +21,16 @@ public class EventSinkHandlerFactoryValidationDecorator<TEventSink> : IEventSink
         _validator = validator ?? throw new ArgumentNullException( nameof(validator) );
     }
 
-    public async Task<IEventSinkHandler> Create( TEventSink eventSink, CancellationToken cancellationToken )
+    public async Task<IEventSinkHandler> Create( TEventSink eventSink, Dataflow dataflow, CancellationToken cancellationToken )
     {
         if ( eventSink == null ) throw new ArgumentNullException( nameof(eventSink) );
+        if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
 
         var result = await _validator.ValidateAsync( eventSink, cancellationToken );
 
         if ( !result.IsValid )
             throw new ValidationException( $"Validation failed for event sink type {typeof(TEventSink)}", result.Errors );
 
-        return await _inner.Create( eventSink, cancellationToken );
+        return await _inner.Create( eventSink, dataflow, cancellationToken );
     }
 }

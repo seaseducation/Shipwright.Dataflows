@@ -24,8 +24,9 @@ public class FactoryTests
     public class Create : FactoryTests
     {
         AggregateEventSink eventSink = new() { EventSinks = { new FakeEventSink(), new FakeEventSink() } };
+        Dataflow dataflow = new();
         CancellationToken cancellationToken;
-        Task<IEventSinkHandler> method() => instance().Create( eventSink, cancellationToken );
+        Task<IEventSinkHandler> method() => instance().Create( eventSink, dataflow, cancellationToken );
 
         [Theory]
         [BooleanCases]
@@ -49,7 +50,7 @@ public class FactoryTests
             {
                 var handler = new Mock<IEventSinkHandler>( MockBehavior.Strict ).Object;
                 expected.Add( handler );
-                factory.InSequence( sequence ).Setup( _ => _.Create( child, cancellationToken ) ).ReturnsAsync( handler );
+                factory.InSequence( sequence ).Setup( _ => _.Create( child, dataflow, cancellationToken ) ).ReturnsAsync( handler );
             }
 
             var actual = await method();

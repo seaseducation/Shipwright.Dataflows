@@ -24,14 +24,22 @@ public class EventSinkHandlerFactoryCancellationDecoratorTests
     public abstract class Create : EventSinkHandlerFactoryCancellationDecoratorTests
     {
         FakeEventSink eventSink = new();
+        Dataflow dataflow = new();
         CancellationToken cancellationToken;
-        Task<IEventSinkHandler> method() => instance().Create( eventSink, cancellationToken );
+        Task<IEventSinkHandler> method() => instance().Create( eventSink, dataflow, cancellationToken );
 
         [Fact]
         public async Task requires_eventSink()
         {
             eventSink = null!;
             await Assert.ThrowsAsync<ArgumentNullException>( nameof(eventSink), method );
+        }
+
+        [Fact]
+        public async Task requires_dataflow()
+        {
+            dataflow = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
         }
 
         public class WhenCanceled : Create
@@ -59,7 +67,7 @@ public class EventSinkHandlerFactoryCancellationDecoratorTests
             public async Task returns_decorated_handler()
             {
                 var expected = new Mock<IEventSinkHandler>( MockBehavior.Strict ).Object;
-                inner.Setup( _ => _.Create( eventSink, cancellationToken ) ).ReturnsAsync( expected );
+                inner.Setup( _ => _.Create( eventSink, dataflow, cancellationToken ) ).ReturnsAsync( expected );
 
                 var actual = await method();
                 var decorator = actual.Should().BeOfType<EventSinkHandlerCancellationDecorator>().Subject;

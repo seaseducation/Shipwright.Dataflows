@@ -17,11 +17,12 @@ public class EventSinkHandlerFactoryCancellationDecorator<TEventSink> : IEventSi
         _inner = inner ?? throw new ArgumentNullException( nameof(inner) );
     }
 
-    public async Task<IEventSinkHandler> Create( TEventSink eventSink, CancellationToken cancellationToken )
+    public async Task<IEventSinkHandler> Create( TEventSink eventSink, Dataflow dataflow, CancellationToken cancellationToken )
     {
         if ( eventSink == null ) throw new ArgumentNullException( nameof(eventSink) );
+        if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
 
         cancellationToken.ThrowIfCancellationRequested();
-        return new EventSinkHandlerCancellationDecorator( await _inner.Create( eventSink, cancellationToken ) );
+        return new EventSinkHandlerCancellationDecorator( await _inner.Create( eventSink, dataflow, cancellationToken ) );
     }
 }
