@@ -83,7 +83,7 @@ public class HandlerTests
                 helper.Setup( _ => _.GetDataflowLinkOptions() ).Returns( linkOptions );
 
                 var expected = _fixture.CreateMany<Record>().ToArray();
-                reader.Setup( _ => _.Read( linkedToken ) ).Returns( expected.ToAsyncEnumerable() );
+                reader.Setup( _ => _.Read( eventSinkHandler.Object, linkedToken ) ).Returns( expected.ToAsyncEnumerable() );
 
                 eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
 
@@ -132,7 +132,7 @@ public class HandlerTests
                 eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
 
                 var records = _fixture.CreateMany<Record>().ToArray();
-                reader.Setup( _ => _.Read( linkedToken ) ).Returns( records.ToAsyncEnumerable() );
+                reader.Setup( _ => _.Read( eventSinkHandler.Object, linkedToken ) ).Returns( records.ToAsyncEnumerable() );
 
                 transformationHandler.Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
 
@@ -172,7 +172,7 @@ public class HandlerTests
                 eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
 
                 var records = _fixture.CreateMany<Record>().ToArray();
-                reader.Setup( _ => _.Read( linkedToken ) ).Returns( records.ToAsyncEnumerable() );
+                reader.Setup( _ => _.Read( eventSinkHandler.Object, linkedToken ) ).Returns( records.ToAsyncEnumerable() );
 
                 transformationHandler.Setup( _ => _.Transform( It.IsAny<Record>(), linkedToken ) )
                     .Returns( Task.CompletedTask )
@@ -218,7 +218,7 @@ public class HandlerTests
                 eventSinkHandler.Setup( _ => _.NotifyDataflowStarting( command, linkedToken ) ).Returns( Task.CompletedTask );
 
                 var records = _fixture.CreateMany<Record>().ToArray();
-                reader.Setup( _ => _.Read( linkedToken ) ).Returns( records.ToAsyncEnumerable() );
+                reader.Setup( _ => _.Read( eventSinkHandler.Object, linkedToken ) ).Returns( records.ToAsyncEnumerable() );
 
                 transformationHandler.Setup( _ => _.Transform( It.IsAny<Record>(), linkedToken ) )
                     .ThrowsAsync( new OperationCanceledException() );

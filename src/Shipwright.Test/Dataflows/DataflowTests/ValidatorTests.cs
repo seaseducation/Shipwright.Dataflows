@@ -127,7 +127,7 @@ public class ValidatorTests
         [Fact]
         public async Task invalid_when_empty()
         {
-            instance = new() { EventSinks = {} };
+            instance.EventSinks.Clear();
             var result = await validator.TestValidateAsync( instance );
             result.ShouldHaveValidationErrorFor( _ => _.EventSinks );
         }

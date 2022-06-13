@@ -4,6 +4,7 @@
 
 using AutoFixture;
 using FluentAssertions;
+using Shipwright.Dataflows.EventSinks;
 
 namespace Shipwright.Dataflows.Sources.Internal;
 
@@ -24,10 +25,19 @@ public class SourceReaderCancellationDecoratorTests
 
     public abstract class Read : SourceReaderCancellationDecoratorTests
     {
+        Mock<IEventSinkHandler> eventSinkHandler = new( MockBehavior.Strict );
         CancellationToken cancellationToken;
-        ValueTask<List<Record>> method() => instance().Read( cancellationToken ).ToListAsync();
+        ValueTask<List<Record>> method() => instance().Read( eventSinkHandler?.Object!, cancellationToken ).ToListAsync();
 
         readonly Fixture fixture = new Fixture().WithDataflowCustomization();
+
+        [Fact]
+        public async Task requires_eventSinkHandler()
+        {
+            eventSinkHandler = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(eventSinkHandler), () => method().AsTask() );
+        }
+
         public class WhenCanceled : Read
         {
             [Fact]
@@ -35,7 +45,7 @@ public class SourceReaderCancellationDecoratorTests
             {
                 cancellationToken = new( true );
                 var records = fixture.CreateMany<Record>();
-                inner.Setup( _ => _.Read( cancellationToken ) ).Returns( records.ToAsyncEnumerable() );
+                inner.Setup( _ => _.Read( eventSinkHandler.Object, cancellationToken ) ).Returns( records.ToAsyncEnumerable() );
 
                 var actual = await method();
                 actual.Should().BeEmpty();
@@ -49,7 +59,7 @@ public class SourceReaderCancellationDecoratorTests
             {
                 cancellationToken = new( false );
                 var records = fixture.CreateMany<Record>().ToArray();
-                inner.Setup( _ => _.Read( cancellationToken ) ).Returns( records.ToAsyncEnumerable() );
+                inner.Setup( _ => _.Read( eventSinkHandler.Object, cancellationToken ) ).Returns( records.ToAsyncEnumerable() );
 
                 var actual = await method();
                 actual.Should().ContainInOrder( records );

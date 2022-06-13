@@ -193,7 +193,7 @@ public record Dataflow : Command
             await eventSinkHandler.NotifyDataflowStarting( command, cts.Token );
 
             // send records to dataflow
-            await foreach ( var record in reader.Read( cts.Token ) )
+            await foreach ( var record in reader.Read( eventSinkHandler, cts.Token ) )
             {
                 if ( cts.IsCancellationRequested ) break;
                 await buffer.SendAsync( record, cts.Token );

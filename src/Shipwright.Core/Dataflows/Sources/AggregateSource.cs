@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using FluentValidation;
+using Shipwright.Dataflows.EventSinks;
 using System.Runtime.CompilerServices;
 
 namespace Shipwright.Dataflows.Sources;
@@ -41,11 +42,11 @@ public record AggregateSource : Source
             _readers = readers ?? throw new ArgumentNullException( nameof(readers) );
         }
 
-        public async IAsyncEnumerable<Record> Read( [EnumeratorCancellation] CancellationToken cancellationToken )
+        public async IAsyncEnumerable<Record> Read( IEventSinkHandler eventSinkHandler, [EnumeratorCancellation] CancellationToken cancellationToken )
         {
             foreach ( var reader in _readers )
             {
-                await foreach ( var record in reader.Read( cancellationToken ) )
+                await foreach ( var record in reader.Read( eventSinkHandler, cancellationToken ) )
                 {
                     yield return record;
                 }
