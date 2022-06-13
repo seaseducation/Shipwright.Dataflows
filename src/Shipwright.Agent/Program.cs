@@ -14,6 +14,7 @@ using Shipwright.Actions.Internal;
 using Shipwright.Commands;
 using Shipwright.Commands.Internal;
 using Shipwright.Dataflows.EventSinks;
+using Shipwright.Dataflows.EventSinks.Internal;
 using Shipwright.Dataflows.Sources;
 using Shipwright.Dataflows.Sources.Internal;
 using Shipwright.Dataflows.Transformations;
@@ -70,6 +71,7 @@ host.UseLamar( registry =>
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryValidationDecorator<>) );
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryEventDecorator<>) );
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryCancellationDecorator<>) );
+    registry.For( typeof(IEventSinkHandlerFactory<>) ).DecorateAllWith( typeof(EventSinkHandlerFactoryValidationDecorator<>) );
 
     // register background task to run
     registry.AddHostedService<Program>();
