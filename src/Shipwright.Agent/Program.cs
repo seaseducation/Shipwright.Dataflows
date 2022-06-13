@@ -66,6 +66,7 @@ host.UseLamar( registry =>
     registry.For( typeof(ISourceReaderFactory<>) ).DecorateAllWith( typeof(SourceReaderFactoryValidationDecorator<>) );
     registry.For( typeof(ISourceReaderFactory<>) ).DecorateAllWith( typeof(SourceReaderFactoryCancellationDecorator<>) );
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryValidationDecorator<>) );
+    registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryEventDecorator<>) );
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryCancellationDecorator<>) );
 
     // register background task to run

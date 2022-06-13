@@ -24,4 +24,9 @@ public record Record( IDictionary<string,object?> Data, Dataflow Dataflow, Sourc
         get => Data[key];
         set => Data[key] = value;
     }
+
+    /// <summary>
+    /// Collection of events that have been recorded against the record.
+    /// </summary>
+    public ICollection<LogEvent> Events { get; init; } = new List<LogEvent>();
 }
