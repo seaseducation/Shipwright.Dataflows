@@ -72,6 +72,7 @@ host.UseLamar( registry =>
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryEventDecorator<>) );
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryCancellationDecorator<>) );
     registry.For( typeof(IEventSinkHandlerFactory<>) ).DecorateAllWith( typeof(EventSinkHandlerFactoryValidationDecorator<>) );
+    registry.For( typeof(IEventSinkHandlerFactory<>) ).DecorateAllWith( typeof(EventSinkHandlerFactoryCancellationDecorator<>) );
 
     // register background task to run
     registry.AddHostedService<Program>();
