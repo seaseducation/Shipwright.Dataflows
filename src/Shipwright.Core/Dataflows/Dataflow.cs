@@ -42,7 +42,7 @@ public record Dataflow : Command
     /// <summary>
     /// Collection of event sinks to notify of dataflow events.
     /// </summary>
-    public ICollection<EventSink> EventSinks { get; init; } = new List<EventSink>();
+    public ICollection<EventSink> EventSinks { get; init; } = new List<EventSink>() { new ConsoleEventSink() };
 
     /// <summary>
     /// Validator for the <see cref="Dataflow"/> command.
