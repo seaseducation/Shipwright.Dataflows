@@ -2,6 +2,8 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using Shipwright.Dataflows.Sources;
+
 namespace Shipwright.Dataflows.EventSinks;
 
 /// <summary>
@@ -27,4 +29,11 @@ public interface IEventSinkHandler
     /// <param name="record">Record that has completed processing.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task NotifyRecordCompleted( Record record, CancellationToken cancellationToken );
+
+    /// <summary>
+    /// Records that the given data source has completed reading within the associated dataflow.
+    /// </summary>
+    /// <param name="source">Dataflow record source that has completed reading.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task NotifySourceCompleted( Source source, CancellationToken cancellationToken );
 }

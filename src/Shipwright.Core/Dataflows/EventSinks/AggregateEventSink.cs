@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using FluentValidation;
+using Shipwright.Dataflows.Sources;
 
 namespace Shipwright.Dataflows.EventSinks;
 
@@ -43,17 +44,13 @@ public record AggregateEventSink : EventSink
         public async Task NotifyDataflowStarting( CancellationToken cancellationToken )
         {
             foreach ( var handler in _handlers )
-            {
                 await handler.NotifyDataflowStarting( cancellationToken );
-            }
         }
 
         public async Task NotifyDataflowCompleted( CancellationToken cancellationToken )
         {
             foreach ( var handler in _handlers )
-            {
                 await handler.NotifyDataflowCompleted( cancellationToken );
-            }
         }
 
         public async Task NotifyRecordCompleted( Record record, CancellationToken cancellationToken )
@@ -61,9 +58,15 @@ public record AggregateEventSink : EventSink
             if ( record == null ) throw new ArgumentNullException( nameof(record) );
 
             foreach ( var handler in _handlers )
-            {
                 await handler.NotifyRecordCompleted( record, cancellationToken );
-            }
+        }
+
+        public async Task NotifySourceCompleted( Source source, CancellationToken cancellationToken )
+        {
+            if ( source == null ) throw new ArgumentNullException( nameof(source) );
+
+            foreach ( var handler in _handlers )
+                await handler.NotifySourceCompleted( source, cancellationToken );
         }
     }
 

@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using AutoFixture;
+using Shipwright.Dataflows.Sources;
 
 namespace Shipwright.Dataflows.EventSinks.AggregateEventSinkTests;
 
@@ -77,7 +78,7 @@ public class HandlerTests
 
         [Theory]
         [BooleanCases]
-        public async Task requires_dataflow( bool canceled )
+        public async Task requires_record( bool canceled )
         {
             cancellationToken = new( canceled );
             record = null!;
@@ -98,6 +99,38 @@ public class HandlerTests
 
             foreach ( var handler in handlers )
                 handler.Verify( _ => _.NotifyRecordCompleted( record, cancellationToken ), Times.Once() );
+        }
+    }
+
+    public class NotifySourceCompleted : HandlerTests
+    {
+        Source source = new FakeSource();
+        CancellationToken cancellationToken;
+        Task method() => instance().NotifySourceCompleted( source, cancellationToken );
+
+        [Theory]
+        [BooleanCases]
+        public async Task requires_source( bool canceled )
+        {
+            cancellationToken = new( canceled );
+            source = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(source), method );
+        }
+
+        [Theory]
+        [BooleanCases]
+        public async Task calls_inner_handlers( bool canceled )
+        {
+            cancellationToken = new( canceled );
+            var sequence = new MockSequence();
+
+            foreach ( var handler in handlers )
+                handler.InSequence( sequence ).Setup( _ => _.NotifySourceCompleted( source, cancellationToken ) ).Returns( Task.CompletedTask );
+
+            await method();
+
+            foreach ( var handler in handlers )
+                handler.Verify( _ => _.NotifySourceCompleted( source, cancellationToken ), Times.Once() );
         }
     }
 }

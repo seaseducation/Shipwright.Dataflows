@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using AutoFixture;
+using Shipwright.Dataflows.Sources;
 
 namespace Shipwright.Dataflows.EventSinks.Internal;
 
@@ -116,6 +117,44 @@ public abstract class EventSinkHandlerCancellationDecoratorTests
                 inner.Setup( _ => _.NotifyRecordCompleted( record, cancellationToken ) ).Returns( Task.CompletedTask );
                 await method();
                 inner.Verify( _ => _.NotifyRecordCompleted( record, cancellationToken ), Times.Once() );
+            }
+        }
+    }
+
+    public abstract class NotifySourceCompleted : EventSinkHandlerCancellationDecoratorTests
+    {
+        Source source = new FakeSource();
+        CancellationToken cancellationToken;
+        Task method() => instance().NotifySourceCompleted( source, cancellationToken );
+
+        [Fact]
+        public async Task requires_dataflow()
+        {
+            source = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(source), method );
+        }
+
+        public class WhenCanceled : NotifySourceCompleted
+        {
+            public WhenCanceled() => cancellationToken = new( true );
+
+            [Fact]
+            public async Task throws_operationCanceled()
+            {
+                await Assert.ThrowsAsync<OperationCanceledException>( method );
+            }
+        }
+
+        public class WhenNotCanceled : NotifySourceCompleted
+        {
+            public WhenNotCanceled() => cancellationToken = new( false );
+
+            [Fact]
+            public async Task calls_inner_handler()
+            {
+                inner.Setup( _ => _.NotifySourceCompleted( source, cancellationToken ) ).Returns( Task.CompletedTask );
+                await method();
+                inner.Verify( _ => _.NotifySourceCompleted( source, cancellationToken ), Times.Once() );
             }
         }
     }

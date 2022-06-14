@@ -5,6 +5,7 @@
 using FluentValidation;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Shipwright.Dataflows.Sources;
 
 namespace Shipwright.Dataflows.EventSinks;
 
@@ -41,13 +42,13 @@ public record ConsoleEventSink( LogLevel MinimumLevel = LogLevel.Warning ) : Eve
 
         public Task NotifyDataflowStarting( CancellationToken cancellationToken )
         {
-            _logger.LogInformation( $"Executing dataflow: {_dataflow.Name}" );
+            _logger.LogInformation( "Executing dataflow: {Dataflow}", _dataflow.Name );
             return Task.CompletedTask;
         }
 
         public Task NotifyDataflowCompleted( CancellationToken cancellationToken )
         {
-            _logger.LogInformation( $"Completed dataflow: {_dataflow.Name}" );
+            _logger.LogInformation( "Completed dataflow: {Dataflow}", _dataflow.Name );
             return Task.CompletedTask;
         }
 
@@ -59,11 +60,24 @@ public record ConsoleEventSink( LogLevel MinimumLevel = LogLevel.Warning ) : Eve
             {
                 if ( e.Level >= _eventSink.MinimumLevel )
                 {
-                    var message = e.Value != null
-                        ? $"{e.Description}: {JsonConvert.SerializeObject( e.Value )}"
-                        : e.Description;
+                    const string message = "Position: [{Position}] Source: [{Source}] Message: [{Message}] Values: [{Values}]";
+                    _logger.Log( e.Level, message, record.Position, record.Source.Description, e.Description, JsonConvert.SerializeObject( e.Value ) );
+                }
+            }
 
-                    _logger.Log( e.Level, message );
+            return Task.CompletedTask;
+        }
+
+        public Task NotifySourceCompleted( Source source, CancellationToken cancellationToken )
+        {
+            if ( source == null ) throw new ArgumentNullException( nameof(source) );
+
+            foreach ( var e in source.Events )
+            {
+                if ( e.Level >= _eventSink.MinimumLevel )
+                {
+                    const string message = "Source: [{Source}] Message: [{Message}] StopProcessing: [{StopProcessing}] Values: [{Values}]";
+                    _logger.Log( e.Level, message, source.Description, e.Description, e.StopProcessing, JsonConvert.SerializeObject( e.Value ) );
                 }
             }
 

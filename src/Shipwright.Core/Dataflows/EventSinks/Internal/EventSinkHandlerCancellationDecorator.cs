@@ -2,6 +2,8 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using Shipwright.Dataflows.Sources;
+
 namespace Shipwright.Dataflows.EventSinks.Internal;
 
 /// <summary>
@@ -35,5 +37,13 @@ public class EventSinkHandlerCancellationDecorator : IEventSinkHandler
 
         cancellationToken.ThrowIfCancellationRequested();
         return _inner.NotifyRecordCompleted( record, cancellationToken );
+    }
+
+    public Task NotifySourceCompleted( Source source, CancellationToken cancellationToken )
+    {
+        if ( source == null ) throw new ArgumentNullException( nameof(source) );
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return _inner.NotifySourceCompleted( source, cancellationToken );
     }
 }
