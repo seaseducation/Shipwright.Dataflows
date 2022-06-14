@@ -6,6 +6,8 @@ using AutoFixture;
 using FluentAssertions;
 using Lamar;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shipwright.Commands;
 
 namespace Shipwright.Actions.Internal.InvokeActionTests;
@@ -14,7 +16,8 @@ public abstract class HandlerTests
 {
     Mock<IServiceContext> container = new( MockBehavior.Strict );
     Mock<IActionSettings> settings = new( MockBehavior.Strict );
-    ICommandHandler<InvokeAction> instance() => new InvokeAction.Handler( container?.Object!, settings?.Object! );
+    ILogger<InvokeAction> logger = new NullLogger<InvokeAction>();
+    ICommandHandler<InvokeAction> instance() => new InvokeAction.Handler( container?.Object!, settings?.Object!, logger );
 
     public class Constructor : HandlerTests
     {
@@ -30,6 +33,13 @@ public abstract class HandlerTests
         {
             settings = null!;
             Assert.Throws<ArgumentNullException>( nameof(settings), instance );
+        }
+
+        [Fact]
+        public void requires_logger()
+        {
+            logger = null!;
+            Assert.Throws<ArgumentNullException>( nameof(logger), instance );
         }
     }
 
@@ -88,7 +98,7 @@ public abstract class HandlerTests
             public async Task executes_expanded_contexts( string tenant )
             {
                 // clear tenant from context
-                command = command with { Context = command.Context with { Tenant = tenant! } };
+                command = command with { Context = command.Context with { Tenant = tenant } };
 
                 var factory = new Mock<IActionFactory>( MockBehavior.Strict );
                 container.Setup( _ => _.GetInstance<IActionFactory>( command.Action ) ).Returns( factory.Object );
