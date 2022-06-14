@@ -121,6 +121,44 @@ public abstract class EventSinkHandlerCancellationDecoratorTests
         }
     }
 
+    public abstract class NotifySourceStarting : EventSinkHandlerCancellationDecoratorTests
+    {
+        Source source = new FakeSource();
+        CancellationToken cancellationToken;
+        Task method() => instance().NotifySourceStarting( source, cancellationToken );
+
+        [Fact]
+        public async Task requires_dataflow()
+        {
+            source = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(source), method );
+        }
+
+        public class WhenCanceled : NotifySourceStarting
+        {
+            public WhenCanceled() => cancellationToken = new( true );
+
+            [Fact]
+            public async Task throws_operationCanceled()
+            {
+                await Assert.ThrowsAsync<OperationCanceledException>( method );
+            }
+        }
+
+        public class WhenNotCanceled : NotifySourceStarting
+        {
+            public WhenNotCanceled() => cancellationToken = new( false );
+
+            [Fact]
+            public async Task calls_inner_handler()
+            {
+                inner.Setup( _ => _.NotifySourceStarting( source, cancellationToken ) ).Returns( Task.CompletedTask );
+                await method();
+                inner.Verify( _ => _.NotifySourceStarting( source, cancellationToken ), Times.Once() );
+            }
+        }
+    }
+
     public abstract class NotifySourceCompleted : EventSinkHandlerCancellationDecoratorTests
     {
         Source source = new FakeSource();

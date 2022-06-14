@@ -68,6 +68,14 @@ public record ConsoleEventSink( LogLevel MinimumLevel = LogLevel.Warning ) : Eve
             return Task.CompletedTask;
         }
 
+        public Task NotifySourceStarting( Source source, CancellationToken cancellationToken )
+        {
+            if ( source == null ) throw new ArgumentNullException( nameof(source) );
+
+            _logger.Log( LogLevel.Information, "Reading from data source [{Source}] beginning", source.Description );
+            return Task.CompletedTask;
+        }
+
         public Task NotifySourceCompleted( Source source, CancellationToken cancellationToken )
         {
             if ( source == null ) throw new ArgumentNullException( nameof(source) );
@@ -81,6 +89,7 @@ public record ConsoleEventSink( LogLevel MinimumLevel = LogLevel.Warning ) : Eve
                 }
             }
 
+            _logger.Log( LogLevel.Information, "Reading from data source [{Source}] has ended", source.Description );
             return Task.CompletedTask;
         }
     }

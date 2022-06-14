@@ -61,6 +61,14 @@ public record AggregateEventSink : EventSink
                 await handler.NotifyRecordCompleted( record, cancellationToken );
         }
 
+        public async Task NotifySourceStarting( Source source, CancellationToken cancellationToken )
+        {
+            if ( source == null ) throw new ArgumentNullException( nameof(source) );
+
+            foreach ( var handler in _handlers )
+                await handler.NotifySourceStarting( source, cancellationToken );
+        }
+
         public async Task NotifySourceCompleted( Source source, CancellationToken cancellationToken )
         {
             if ( source == null ) throw new ArgumentNullException( nameof(source) );

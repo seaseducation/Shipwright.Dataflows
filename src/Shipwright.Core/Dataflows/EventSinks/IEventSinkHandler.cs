@@ -31,6 +31,13 @@ public interface IEventSinkHandler
     Task NotifyRecordCompleted( Record record, CancellationToken cancellationToken );
 
     /// <summary>
+    /// Records that the given data source is starting to read within the associated dataflow.
+    /// </summary>
+    /// <param name="source">Dataflow record source that is starting to read.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task NotifySourceStarting( Source source, CancellationToken cancellationToken );
+
+    /// <summary>
     /// Records that the given data source has completed reading within the associated dataflow.
     /// </summary>
     /// <param name="source">Dataflow record source that has completed reading.</param>

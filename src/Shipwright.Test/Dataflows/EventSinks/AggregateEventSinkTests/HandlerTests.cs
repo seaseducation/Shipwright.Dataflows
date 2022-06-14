@@ -102,6 +102,38 @@ public class HandlerTests
         }
     }
 
+    public class NotifySourceStarting : HandlerTests
+    {
+        Source source = new FakeSource();
+        CancellationToken cancellationToken;
+        Task method() => instance().NotifySourceStarting( source, cancellationToken );
+
+        [Theory]
+        [BooleanCases]
+        public async Task requires_source( bool canceled )
+        {
+            cancellationToken = new( canceled );
+            source = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(source), method );
+        }
+
+        [Theory]
+        [BooleanCases]
+        public async Task calls_inner_handlers( bool canceled )
+        {
+            cancellationToken = new( canceled );
+            var sequence = new MockSequence();
+
+            foreach ( var handler in handlers )
+                handler.InSequence( sequence ).Setup( _ => _.NotifySourceStarting( source, cancellationToken ) ).Returns( Task.CompletedTask );
+
+            await method();
+
+            foreach ( var handler in handlers )
+                handler.Verify( _ => _.NotifySourceStarting( source, cancellationToken ), Times.Once() );
+        }
+    }
+
     public class NotifySourceCompleted : HandlerTests
     {
         Source source = new FakeSource();

@@ -39,6 +39,14 @@ public class EventSinkHandlerCancellationDecorator : IEventSinkHandler
         return _inner.NotifyRecordCompleted( record, cancellationToken );
     }
 
+    public Task NotifySourceStarting( Source source, CancellationToken cancellationToken )
+    {
+        if ( source == null ) throw new ArgumentNullException( nameof(source) );
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return _inner.NotifySourceStarting( source, cancellationToken );
+    }
+
     public Task NotifySourceCompleted( Source source, CancellationToken cancellationToken )
     {
         if ( source == null ) throw new ArgumentNullException( nameof(source) );
