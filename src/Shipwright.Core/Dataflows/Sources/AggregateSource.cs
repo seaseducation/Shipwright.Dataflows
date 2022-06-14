@@ -26,6 +26,7 @@ public record AggregateSource : Source
         public Validator()
         {
             RuleFor( _ => _.Sources ).NotEmpty();
+            RuleFor( _ => _.Events ).NotNull();
         }
     }
 

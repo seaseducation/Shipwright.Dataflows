@@ -2,6 +2,8 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using AutoFixture;
+
 namespace Shipwright.Dataflows.Sources.AggregateSourceTests;
 
 public class ValidatorTests
@@ -33,6 +35,27 @@ public class ValidatorTests
             instance = new() { Sources = { new FakeSource() } };
             var actual = await validator.TestValidateAsync( instance );
             actual.ShouldNotHaveValidationErrorFor( _ => _.Sources );
+        }
+    }
+
+    public class Events : ValidatorTests
+    {
+        [Fact]
+        public async Task invalid_when_null()
+        {
+            instance = new() { Events = null! };
+            var actual = await validator.TestValidateAsync( instance );
+            actual.ShouldHaveValidationErrorFor( _ => _.Events );
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        public async Task valid_when_empty_or_has_contents( int events )
+        {
+            instance = new() { Events = new Fixture().CreateMany<LogEvent>( events ).ToList() };
+            var actual = await validator.TestValidateAsync( instance );
+            actual.ShouldNotHaveValidationErrorFor( _ => _.Events );
         }
     }
 }
