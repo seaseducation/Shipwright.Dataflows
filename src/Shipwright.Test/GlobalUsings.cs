@@ -2,6 +2,7 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+global using AutoFixture;
 global using FluentValidation;
 global using FluentValidation.TestHelper;
 global using Moq;
