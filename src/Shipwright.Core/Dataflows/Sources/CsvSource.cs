@@ -5,7 +5,6 @@
 using CsvHelper;
 using CsvHelper.Configuration;
 using FluentValidation;
-using LamarCodeGeneration.Util;
 using Microsoft.Extensions.Logging;
 using Shipwright.Dataflows.EventSinks;
 using System.Globalization;
@@ -108,7 +107,7 @@ public record CsvSource : Source
                         : csvReader.HeaderRecord[i].Trim();
 
                 var duplicates = csvReader.HeaderRecord
-                    .GroupBy( header => header )
+                    .GroupBy( header => header, _dataflow.FieldNameComparer )
                     .Where( _ => _.Count() > 1 )
                     .Select( _ => _.Key )
                     .ToList();
@@ -120,7 +119,7 @@ public record CsvSource : Source
             // read all records
             while ( !cancellationToken.IsCancellationRequested && await csvReader.ReadAsync() )
             {
-                var data = new Dictionary<string, object?>( StringComparer.OrdinalIgnoreCase );
+                var data = new Dictionary<string, object?>( _dataflow.FieldNameComparer );
 
                 for ( var i = 0; i < csvReader.ColumnCount; i++ )
                 {

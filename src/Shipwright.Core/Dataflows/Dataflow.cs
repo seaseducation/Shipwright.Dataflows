@@ -30,6 +30,12 @@ public record Dataflow : Command
     public int MaxDegreeOfParallelism { get; init; } = 1;
 
     /// <summary>
+    /// Comparer to use for field names.
+    /// Defaults to <see cref="StringComparer.OrdinalIgnoreCase"/>.
+    /// </summary>
+    public StringComparer FieldNameComparer { get; init; } = StringComparer.OrdinalIgnoreCase;
+
+    /// <summary>
     /// Collection of data sources from which to read records.
     /// </summary>
     public ICollection<Source> Sources { get; init; } = new List<Source>();
