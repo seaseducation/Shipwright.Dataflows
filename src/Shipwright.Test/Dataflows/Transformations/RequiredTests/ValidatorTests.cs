@@ -29,6 +29,16 @@ public class ValidatorTests
             result.ShouldHaveValidationErrorFor( _ => _.Fields );
         }
 
+        [Theory]
+        [InlineData(null)]
+        [WhitespaceCases]
+        public async Task cannot_have_null_or_whitespace_elements( string value )
+        {
+            instance = instance with { Fields = new List<string> { value } };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.Fields );
+        }
+
         [Fact]
         public async Task valid_when_given_content()
         {

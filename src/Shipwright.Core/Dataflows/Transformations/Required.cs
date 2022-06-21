@@ -42,6 +42,7 @@ public record Required : Transformation
         public Validator()
         {
             RuleFor( _ => _.Fields ).NotEmpty();
+            RuleForEach( _ => _.Fields ).NotEmpty();
             RuleFor( _ => _.OnError ).NotNull();
         }
     }
