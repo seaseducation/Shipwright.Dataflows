@@ -3,18 +3,17 @@
 // All Rights Reserved.
 
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileProviders.Internal;
 
 namespace Shipwright.Actions.Internal;
 
 /// <summary>
-/// Implementation of <see cref="IActionSettings" />.
+/// Implementation of <see cref="IActionSettingsFactory" />.
 /// </summary>
-public class ActionSettings : IActionSettings
+public class ActionSettingsFactory : IActionSettingsFactory
 {
     readonly IConfiguration _configuration;
 
-    public ActionSettings( IConfiguration configuration )
+    public ActionSettingsFactory( IConfiguration configuration )
     {
         _configuration = configuration ?? throw new ArgumentNullException( nameof(configuration) );
     }
