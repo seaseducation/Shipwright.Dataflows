@@ -18,13 +18,17 @@ public static class ActionExtensions
     /// Obtains a collection of CSV data sources based on the source in the given configuration.
     /// </summary>
     /// <param name="configuration">Action configuration.</param>
-    public static IEnumerable<CsvSource> GetCsvSources( this IConfiguration configuration )
+    /// <param name="tenant">Tenant for which the sources are located.</param>
+    public static IEnumerable<CsvSource> GetCsvSources( this IConfiguration configuration, string tenant )
     {
         // get csv settings from config
         var csvConfig = new CsvConfiguration( CultureInfo.InvariantCulture );
         configuration.GetSection( "source" ).Bind( csvConfig );
 
-        var path = configuration["source:path"];
+        var path = configuration["source:path"]
+            .Replace( "{tenantImportPath}", configuration["tenant:import:path"] )
+            .Replace( "{tenant}", tenant );
+
         var file = configuration["source:file"];
         var skip = configuration.GetValue( "source:skip", 0 );
 
@@ -46,5 +50,29 @@ public static class ActionExtensions
         // this will yield a file not found event
         if ( !matches.Any() )
             yield return create( Path.Combine( path, file ), file );
+    }
+
+    /// <summary>
+    /// Flattens the given configuration and removes blank values.
+    /// </summary>
+    /// <param name="configuration">Configuration to flatten.</param>
+    public static IConfigurationRoot Flatten( this IConfigurationRoot configuration )
+    {
+        var map = new ConfigurationBuilder().AddInMemoryCollection().Build();
+
+        void extract( IConfiguration item )
+        {
+            foreach ( var child in item.GetChildren() )
+            {
+                if ( !string.IsNullOrWhiteSpace( child.Value ) )
+                    map[child.Path] = child.Value;
+
+                else
+                    extract( child );
+            }
+        }
+
+        extract( configuration );
+        return map;
     }
 }

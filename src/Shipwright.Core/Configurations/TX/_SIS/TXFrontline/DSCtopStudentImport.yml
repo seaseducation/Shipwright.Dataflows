@@ -1,0 +1,29 @@
+# TXFrontline
+source:
+  path: "{tenantImportPath}"
+  file: student*.csv
+
+fields:
+  BillingDistrictStateId:
+  BirthDate: BIRTHDAY
+  DistrictStudentId: DIST_STUDENT_ID
+  Eligible: IS_ELIGIBLE
+  EligibleEndDate: ELIGIBLE_END
+  EligibleStartDate: ELIGIBLE_START
+  FirstName: FIRST_NAME
+  Gender: GENDER
+  IepEndDate: IEP_END
+  IepStartDate: IEP_START
+  IepStatus: IEP_STATUS
+  LastName: LAST_NAME
+  MiddleName: MIDDLE_NAME
+  ParentalConsent: PARENT_CONSENT
+  ParentalConsentEnd: PARENT_CONSENT_END
+  ParentalConsentStart: PARENT_CONSENT_START
+  SchoolName: SCHOOL_NAME
+  StateHealthId: STATE_HEALTH_ID
+  StateStudentId: STATE_STUDENT_ID
+  Status:
+  StatusEnd:
+  StatusStart:
+  Wheelchair: IS_WHEELCHAIR
