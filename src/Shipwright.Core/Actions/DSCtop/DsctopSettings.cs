@@ -61,6 +61,11 @@ public record DsctopSettings : IActionSettings
     public string ImportPath { get; init; } = string.Empty;
 
     /// <summary>
+    /// User identifier for imports.
+    /// </summary>
+    public long ImportUser { get; init; } = 99999998;
+
+    /// <summary>
     /// Factory for generating settings.
     /// </summary>
     public class Factory : IActionSettingsFactory<DsctopSettings>
@@ -131,7 +136,9 @@ public record DsctopSettings : IActionSettings
                 _ => "DSCtop"
             } );
 
-
+        /// <summary>
+        /// Gets district settings for the tenant from the DSCtop database.
+        /// </summary>
         public virtual async Task<dynamic> GetDistrictSettings( OracleConnectionInfo connectionInfo, string tenant, CancellationToken cancellationToken )
         {
             // ReSharper disable once StringLiteralTypo
@@ -182,6 +189,12 @@ public record DsctopSettings : IActionSettings
         }
 
         /// <summary>
+        /// Gets the user identifier for import audit records.
+        /// Uses the standard convention if not explicitly set in configuration.
+        /// </summary>
+        public long GetImportUser( IConfiguration configuration ) => configuration.GetValue( "dsctop:import:user", 99999998 );
+
+        /// <summary>
         /// Implementation of <see cref="IActionSettingsFactory{TSettings}"/>.
         /// </summary>
         public virtual async Task<DsctopSettings> Create( ActionContext context, IConfigurationRoot configuration, CancellationToken cancellationToken )
@@ -205,7 +218,8 @@ public record DsctopSettings : IActionSettings
                 DistrictState = state,
                 ProductName = productName,
                 ImportFolder = GetImportFolder( district.IMPORT_DIR, district.DIST_NAME ),
-                ImportPath = GetImportPath( tenant, configuration )
+                ImportPath = GetImportPath( tenant, configuration ),
+                ImportUser = GetImportUser( configuration ),
             };
         }
     }
