@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 
 namespace Shipwright.Dataflows.Transformations;
 
@@ -37,7 +38,8 @@ public record Conversion : Transformation
     /// <summary>
     /// Failure event delegate to use on failure.
     /// </summary>
-    public EventDelegate OnFailed { get; init; } = null!;
+    public EventDelegate OnFailed { get; init; } = field =>
+        new( true, LogLevel.Error, $"Unable to convert the data in field [{field}]" );
 
     /// <summary>
     /// Validator for the <see cref="Conversion"/> type.
@@ -101,4 +103,16 @@ public record Conversion : Transformation
             return Task.FromResult<ITransformationHandler>( new Handler( transformation ) );
         }
     }
+
+    /// <summary>
+    /// Delegate for performing an uppercase conversion using the invariant culture.
+    /// </summary>
+    public static ConverterDelegate UpperCase { get; } = ( object value, out object? result ) =>
+    {
+        result = value is string text
+            ? text.ToUpperInvariant()
+            : null;
+
+        return result != null;
+    };
 }
