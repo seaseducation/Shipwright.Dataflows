@@ -11,7 +11,7 @@ public class UpperCaseTests
 {
     object value = new Fixture().Create<string>();
     object? converted;
-    bool method() => Conversion.UpperCase( value, out converted );
+    bool method() => Conversion.ToUpperCase( value, out converted );
 
     public class WhenNotString : UpperCaseTests
     {

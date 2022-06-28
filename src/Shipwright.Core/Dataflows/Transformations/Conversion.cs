@@ -107,12 +107,35 @@ public record Conversion : Transformation
     /// <summary>
     /// Delegate for performing an uppercase conversion using the invariant culture.
     /// </summary>
-    public static ConverterDelegate UpperCase { get; } = ( object value, out object? result ) =>
+    public static ConverterDelegate ToUpperCase { get; } = ( object value, out object? converted ) =>
     {
-        result = value is string text
+        converted = value is string text
             ? text.ToUpperInvariant()
             : null;
 
-        return result != null;
+        return converted != null;
+    };
+
+    /// <summary>
+    /// Delegate for converting field values to <see cref="DateTime"/>.
+    /// </summary>
+    public static ConverterDelegate ToDateTime { get; } = ( object value, out object? converted ) =>
+    {
+        try
+        {
+            converted = value switch
+            {
+                DateTime dateTime => dateTime,
+                string text when DateTime.TryParse( text, out var parsed ) => parsed,
+                IConvertible convertible => Convert.ToDateTime( convertible ),
+                _ => null
+            };
+        }
+        catch
+        {
+            converted = null;
+        }
+
+        return converted != null;
     };
 }
