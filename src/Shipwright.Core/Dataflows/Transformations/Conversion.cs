@@ -138,4 +138,16 @@ public record Conversion : Transformation
 
         return converted != null;
     };
+
+    /// <summary>
+    /// Delegate for converting field values to <see cref="DateTime"/> with only a date component.
+    /// </summary>
+    public static ConverterDelegate ToDate { get; } = ( object value, out object? converted ) =>
+    {
+        converted = ToDateTime( value, out converted ) && converted is DateTime dateTime
+            ? dateTime.Date
+            : null;
+
+        return converted != null;
+    };
 }
