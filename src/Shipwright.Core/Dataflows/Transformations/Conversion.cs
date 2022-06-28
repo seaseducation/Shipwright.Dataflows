@@ -150,4 +150,27 @@ public record Conversion : Transformation
 
         return converted != null;
     };
+
+    /// <summary>
+    /// Delegate for converting field values to <see cref="Boolean"/>.
+    /// </summary>
+    public static ConverterDelegate ToBoolean { get; } = ( object value, out object? converted ) =>
+    {
+        try
+        {
+            converted = value switch
+            {
+                bool boolean => boolean,
+                string text when bool.TryParse( text, out var parsed ) => parsed,
+                IConvertible convertible => Convert.ToBoolean( convertible ),
+                _ => null
+            };
+        }
+        catch
+        {
+            converted = null;
+        }
+
+        return converted != null;
+    };
 }
