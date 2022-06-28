@@ -152,6 +152,19 @@ public record Conversion : Transformation
     };
 
     /// <summary>
+    /// Conventional values we want to add to
+    /// </summary>
+    static readonly IReadOnlyDictionary<string, bool> KnownBooleanStrings = new Dictionary<string, bool>( StringComparer.OrdinalIgnoreCase )
+    {
+        { "yes", true },
+        { "no", false },
+        { "y", true },
+        { "n", false },
+        { "0", false },
+        { "1", true },
+    };
+
+    /// <summary>
     /// Delegate for converting field values to <see cref="Boolean"/>.
     /// </summary>
     public static ConverterDelegate ToBoolean { get; } = ( object value, out object? converted ) =>
@@ -162,6 +175,7 @@ public record Conversion : Transformation
             {
                 bool boolean => boolean,
                 string text when bool.TryParse( text, out var parsed ) => parsed,
+                string text when KnownBooleanStrings.TryGetValue( text, out var known ) => known,
                 IConvertible convertible => Convert.ToBoolean( convertible ),
                 _ => null
             };

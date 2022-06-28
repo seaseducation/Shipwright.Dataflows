@@ -30,6 +30,14 @@ public class BooleanTests
                 Add( "false", false );
                 Add( "FALSE", false );
                 Add( "False", false );
+                Add( "yes", true );
+                Add( "YES", true );
+                Add( "Y", true );
+                Add( "no", false );
+                Add( "NO", false );
+                Add( "N", false );
+                Add( "1", true );
+                Add( "0", false );
 
                 // convertible
                 Add( 1, true );
@@ -58,8 +66,6 @@ public class BooleanTests
             {
                 // text that can't be parsed
                 Add( Guid.NewGuid().ToString() );
-                Add( "yes" );
-                Add( "no" );
 
                 // inconvertible types
                 Add( Guid.NewGuid() );
