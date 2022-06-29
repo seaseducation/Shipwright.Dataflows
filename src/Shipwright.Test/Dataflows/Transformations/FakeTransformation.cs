@@ -4,4 +4,7 @@
 
 namespace Shipwright.Dataflows.Transformations;
 
-public record FakeTransformation : Transformation;
+public record FakeTransformation : Transformation
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+}

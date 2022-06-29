@@ -4,6 +4,7 @@
 
 using AutoFixture;
 using AutoFixture.Kernel;
+using Microsoft.Extensions.Configuration;
 using Shipwright.Dataflows.EventSinks;
 using Shipwright.Dataflows.Sources;
 using Shipwright.Dataflows.Transformations;
@@ -17,6 +18,7 @@ public static class AutoFixtureExtensions
         fixture.Customizations.Add( new TypeRelay( typeof(Source), typeof(FakeSource) ) );
         fixture.Customizations.Add( new TypeRelay( typeof(Transformation), typeof(FakeTransformation) ) );
         fixture.Customizations.Add( new TypeRelay( typeof(EventSink), typeof(FakeEventSink) ) );
+        fixture.Customize<Dataflow>( dataflow => dataflow.Without( _ => _.Configuration ) );
 
         return fixture;
     }

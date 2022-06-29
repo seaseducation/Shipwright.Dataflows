@@ -3,11 +3,14 @@
 // All Rights Reserved.
 
 using AutoFixture.Xunit2;
+using CsvHelper;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using Shipwright.Dataflows.EventSinks;
 using Shipwright.Dataflows.Sources;
 using Shipwright.Dataflows.Transformations;
 using System.Threading.Tasks.Dataflow;
+using DefaultValue = Shipwright.Dataflows.Transformations.DefaultValue;
 
 namespace Shipwright.Dataflows.DataflowTests;
 
@@ -16,7 +19,7 @@ public class HelperTests
     Mock<ISourceReaderFactory> readerFactory = new( MockBehavior.Strict );
     Mock<ITransformationHandlerFactory> transformationHandlerFactory = new( MockBehavior.Strict );
     Mock<IEventSinkHandlerFactory> eventSinkHandlerFactory = new( MockBehavior.Strict );
-    Dataflow.Helper instance() => new Dataflow.Helper( readerFactory?.Object!, transformationHandlerFactory?.Object!, eventSinkHandlerFactory?.Object! );
+    Dataflow.Helper instance() => new( readerFactory?.Object!, transformationHandlerFactory?.Object!, eventSinkHandlerFactory?.Object! );
 
     public class Constructor : HelperTests
     {
@@ -170,77 +173,253 @@ public class HelperTests
         }
     }
 
-    public abstract class GetTransformationHandler : HelperTests
+    public abstract class GetKeysRequired : HelperTests
+    {
+        Dataflow dataflow = new Fixture().WithDataflowCustomization().Create<Dataflow>();
+        IEnumerable<Transformation> method() => instance().GetKeysRequired( dataflow ).ToArray();
+
+        [Fact]
+        public void requires_dataflow()
+        {
+            dataflow = null!;
+            Assert.Throws<ArgumentNullException>( nameof(dataflow), method );
+        }
+
+        public class WhenNoKeys : GetKeysRequired
+        {
+            [Fact]
+            public void yields_no_transformations()
+            {
+                dataflow.Keys.Clear();
+                var actual = method();
+                actual.Should().BeEmpty();
+            }
+        }
+
+        public class WhenKeys : GetKeysRequired
+        {
+            [Fact]
+            public void yields_required_transformation_for_key_fields()
+            {
+                var actual = method();
+                var required = actual.Should().ContainSingle().Subject.Should().BeOfType<Required>().Subject;
+                required.Fields.Should().BeEquivalentTo( dataflow.Keys );
+            }
+        }
+    }
+
+    public abstract class GetReplacements : HelperTests
+    {
+        Dataflow dataflow = new Fixture().WithDataflowCustomization().Create<Dataflow>();
+        IEnumerable<Transformation> method() => instance().GetReplacements( dataflow ).ToArray();
+
+        protected GetReplacements()
+        {
+            dataflow = dataflow with { Configuration = new ConfigurationBuilder().AddInMemoryCollection().Build() };
+        }
+
+        [Fact]
+        public void requires_dataflow()
+        {
+            dataflow = null!;
+            Assert.Throws<ArgumentNullException>( nameof(dataflow), method );
+        }
+
+        public class WhenConfigurationNull : GetReplacements
+        {
+            [Fact]
+            public void yields_no_transformations()
+            {
+                dataflow = dataflow with { Configuration = null };
+                var actual = method();
+                actual.Should().BeEmpty();
+            }
+        }
+
+        public class WhenNoReplacementsConfigured : GetReplacements
+        {
+            [Fact]
+            public void yields_no_transformations()
+            {
+                var actual = method();
+                actual.Should().BeEmpty();
+            }
+        }
+
+        public class WhenInlineReplacementsConfigured : GetReplacements
+        {
+            [Fact]
+            public void yields_transformation_per_field_with_inline_replacements()
+            {
+                var fixture = new Fixture();
+                var expected = new List<Replace>();
+                var fields = fixture.CreateMany<string>();
+
+                foreach ( var field in fields )
+                {
+                    var replace = new Replace { Fields = { field } };
+                    var replacements = fixture.CreateMany<(string incoming, string outgoing)>();
+
+                    foreach ( var (incoming, outgoing) in replacements )
+                    {
+                        replace.Replacements.Add( new( incoming, outgoing ) );
+                        dataflow.Configuration![$"replace:{field}:{incoming}"] = outgoing;
+                    }
+
+                    expected.Add( replace );
+                }
+
+                var actual = method();
+                actual.Should().BeEquivalentTo( expected );
+            }
+        }
+
+        public class WhenSharedReplacementsConfigured : GetReplacements
+        {
+            [Fact]
+            public void yields_transformation_per_field_with_inline_replacements()
+            {
+                var fixture = new Fixture();
+                var expected = new List<Replace>();
+                var fields = fixture.CreateMany<string>();
+                var replacementKey = fixture.Create<string>();
+                var replacements = fixture.CreateMany<(string incoming, string outgoing)>().ToArray();
+
+                foreach ( var ( incoming, outgoing ) in replacements )
+                    dataflow.Configuration![$"{replacementKey}:{incoming}"] = outgoing;
+
+                foreach ( var field in fields )
+                {
+                    var replace = new Replace { Fields = { field } };
+
+                    foreach ( var (incoming, outgoing) in replacements )
+                        replace.Replacements.Add( new( incoming, outgoing ) );
+
+                    dataflow.Configuration![$"replace:{field}"] = replacementKey;
+                    expected.Add( replace );
+                }
+
+                var actual = method();
+                actual.Should().BeEquivalentTo( expected );
+            }
+        }
+    }
+
+    public abstract class GetDefaults : HelperTests
+    {
+        Dataflow dataflow = new Fixture().WithDataflowCustomization().Create<Dataflow>();
+        IEnumerable<Transformation> method() => instance().GetDefaults( dataflow ).ToArray();
+
+        protected GetDefaults()
+        {
+            dataflow = dataflow with { Configuration = new ConfigurationBuilder().AddInMemoryCollection().Build() };
+        }
+
+        [Fact]
+        public void requires_dataflow()
+        {
+            dataflow = null!;
+            Assert.Throws<ArgumentNullException>( nameof(dataflow), method );
+        }
+
+        public class WhenConfigurationNull : GetDefaults
+        {
+            [Fact]
+            public void yields_no_transformations()
+            {
+                dataflow = dataflow with { Configuration = null };
+                var actual = method();
+                actual.Should().BeEmpty();
+            }
+        }
+
+        public class WhenNoDefaultsConfigured : GetDefaults
+        {
+            [Fact]
+            public void yields_no_transformations()
+            {
+                var actual = method();
+                actual.Should().BeEmpty();
+            }
+        }
+
+        public class WhenDefaultsConfigured : GetDefaults
+        {
+            [Fact]
+            public void yields_default_value_transformation_for_all_fields()
+            {
+                var fixture = new Fixture();
+                var expected = fixture.CreateMany<(string field, string value)>().ToArray();
+
+                foreach ( var ( field, value ) in expected )
+                    dataflow.Configuration![$"default:{field}"] = value;
+
+                var actual = method();
+                var transformation = actual.Should().ContainSingle().Subject.Should().BeOfType<DefaultValue>().Subject;
+                transformation.DefaultOnBlank.Should().BeTrue();
+
+                var defaults = transformation.Defaults.Select( _ => (field: _.Field, value: _.Value()) ).ToArray();
+                defaults.Should().BeEquivalentTo( expected );
+            }
+        }
+    }
+
+    public class GetTransformationHandler : HelperTests
     {
         Dataflow dataflow = new Fixture().WithDataflowCustomization().Create<Dataflow>();
         CancellationToken cancellationToken;
-        Task<ITransformationHandler> method() => instance().GetTransformationHandler( dataflow, cancellationToken );
+        Task<ITransformationHandler> method() => helper.Object.GetTransformationHandler( dataflow, cancellationToken );
+
+        readonly Mock<Dataflow.Helper> helper;
+
+        public GetTransformationHandler()
+        {
+            helper = new( MockBehavior.Strict, readerFactory?.Object!, transformationHandlerFactory?.Object!, eventSinkHandlerFactory?.Object! );
+        }
 
         [Fact]
         public async Task requires_dataflow()
         {
             dataflow = null!;
+            helper.Setup( _ => _.GetTransformationHandler( dataflow, cancellationToken ) ).CallBase();
             await Assert.ThrowsAsync<ArgumentNullException>( nameof(dataflow), method );
         }
 
-        public class WhenNoKeys : GetTransformationHandler
+        [Fact]
+        public async Task returns_configured_transformations_in_order()
         {
-            public WhenNoKeys()
-            {
-                dataflow.Keys.Clear();
-            }
+            var fixture = new Fixture();
+            var expected = new List<Transformation>();
 
-            [Theory]
-            [BooleanCases]
-            public async Task returns_aggregate_handler( bool canceled )
-            {
-                cancellationToken = new( canceled );
-                var transformations = new List<Transformation>();
-                var expected = new Mock<ITransformationHandler>( MockBehavior.Strict ).Object;
-                transformationHandlerFactory.Setup( _ => _.Create( Capture.In( transformations ), cancellationToken ) ).ReturnsAsync( expected );
+            // required transformations for keys should be first
+            var keys = fixture.CreateMany<FakeTransformation>().ToArray();
+            expected.AddRange( keys );
+            helper.Setup( _ => _.GetKeysRequired( dataflow ) ).Returns( keys );
 
-                var actual = await method();
-                actual.Should().BeSameAs( expected );
+            // followed by default values
+            var defaults = fixture.CreateMany<FakeTransformation>().ToArray();
+            expected.AddRange( defaults );
+            helper.Setup( _ => _.GetDefaults( dataflow ) ).Returns( defaults );
 
-                var transformation = transformations.Should().ContainSingle().Subject;
-                var aggregate = transformation.Should().BeOfType<AggregateTransformation>().Subject;
-                aggregate.Transformations.Should().ContainInOrder( dataflow.Transformations );
-                aggregate.Transformations.Should().BeEquivalentTo( dataflow.Transformations );
-            }
-        }
+            // followed by value replacements
+            var replacements = fixture.CreateMany<FakeTransformation>().ToArray();
+            expected.AddRange( replacements );
+            helper.Setup( _ => _.GetReplacements( dataflow ) ).Returns( replacements );
 
-        public class WhenKeys : GetTransformationHandler
-        {
-            public WhenKeys()
-            {
-                dataflow = dataflow with { Keys = new Fixture().CreateMany<string>().ToList() };
+            // ending with the dataflow transformations
+            expected.AddRange( dataflow.Transformations );
 
-            }
+            var captured = new List<Transformation>();
+            var handler = new Mock<ITransformationHandler>( MockBehavior.Strict ).Object;
+            transformationHandlerFactory.Setup( _ => _.Create( Capture.In( captured ), cancellationToken ) ).ReturnsAsync( handler );
 
-            [Theory]
-            [BooleanCases]
-            public async Task returns_aggregate_handler_with_required_transformation_in_first_position( bool canceled )
-            {
-                cancellationToken = new( canceled );
-                var transformations = new List<Transformation>();
-                var expected = new Mock<ITransformationHandler>( MockBehavior.Strict ).Object;
-                transformationHandlerFactory.Setup( _ => _.Create( Capture.In( transformations ), cancellationToken ) ).ReturnsAsync( expected );
+            helper.Setup( _ => _.GetTransformationHandler( dataflow, cancellationToken ) ).CallBase();
+            var actual = await method();
+            actual.Should().BeSameAs( handler );
 
-                var actual = await method();
-                actual.Should().BeSameAs( expected );
-
-                var transformation = transformations.Should().ContainSingle().Subject;
-                var aggregate = transformation.Should().BeOfType<AggregateTransformation>().Subject;
-
-                // first element should be a required transformation
-                var required = aggregate.Transformations.First().Should().BeOfType<Required>().Subject;
-                required.Fields.Should().BeEquivalentTo( dataflow.Keys );
-                required.AllowEmpty.Should().BeFalse();
-
-                // remaining items should match the dataflow
-                aggregate.Transformations.Skip( 1 ).Should().ContainInOrder( dataflow.Transformations );
-                aggregate.Transformations.Skip( 1 ).Should().BeEquivalentTo( dataflow.Transformations );
-            }
+            var aggregate = captured.Should().ContainSingle().Subject.Should().BeOfType<AggregateTransformation>().Subject;
+            aggregate.Transformations.Should().ContainInOrder( expected );
+            aggregate.Transformations.Count.Should().Be( expected.Count );
         }
     }
 

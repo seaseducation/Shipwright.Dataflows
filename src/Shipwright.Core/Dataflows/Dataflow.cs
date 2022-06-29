@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using FluentValidation;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Shipwright.Commands;
 using Shipwright.Dataflows.EventSinks;
@@ -55,6 +56,11 @@ public record Dataflow : Command
     /// Collection of event sinks to notify of dataflow events.
     /// </summary>
     public ICollection<EventSink> EventSinks { get; init; } = new List<EventSink>() { new ConsoleEventSink() };
+
+    /// <summary>
+    /// Configuration from which to obtain tenant-specific default values and replacements.
+    /// </summary>
+    public IConfiguration? Configuration { get; init; } = null;
 
     /// <summary>
     /// Validator for the <see cref="Dataflow"/> command.
@@ -136,6 +142,66 @@ public record Dataflow : Command
         }
 
         /// <summary>
+        /// Returns <see cref="Required"/> transformations to ensure key fields are present.
+        /// </summary>
+        public virtual IEnumerable<Transformation> GetKeysRequired( Dataflow dataflow )
+        {
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
+
+            if ( dataflow.Keys.Any() )
+            {
+                yield return new Required
+                {
+                    AllowEmpty = false,
+                    Fields = dataflow.Keys,
+                    OnError = field => new( true, LogLevel.Error, $"Missing a required key field: {field}" )
+                };
+            }
+        }
+
+        /// <summary>
+        /// Returns any <see cref="Replace"/> transformations defined in configuration.
+        /// </summary>
+        public virtual IEnumerable<Transformation> GetReplacements( Dataflow dataflow )
+        {
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
+            if ( dataflow.Configuration == null ) yield break;
+
+            foreach ( var replace in dataflow.Configuration.GetSection( "replace" ).GetChildren() )
+            {
+                var transformation = new Replace { Fields = { replace.Key } };
+                var replacements = replace.Value != null ? dataflow.Configuration.GetSection( replace.Value ) : replace;
+
+                foreach ( var replacement in replacements.GetChildren() )
+                    transformation.Replacements.Add( new( replacement.Key, replacement.Value ) );
+
+                if ( transformation.Replacements.Any() )
+                    yield return transformation;
+            }
+        }
+
+        /// <summary>
+        /// Returns any <see cref="DefaultValue"/> transformations defined in configuration.
+        /// </summary>
+        public virtual IEnumerable<Transformation> GetDefaults( Dataflow dataflow )
+        {
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
+            if ( dataflow.Configuration == null ) yield break;
+
+            var transformation = new DefaultValue();
+
+            foreach ( var @default in dataflow.Configuration.GetSection( "default" ).GetChildren() )
+            {
+                var field = @default.Key;
+                var value = @default.Value;
+                transformation.Defaults.Add( new( field, () => value ) );
+            }
+
+            if ( transformation.Defaults.Any() )
+                yield return transformation;
+        }
+
+        /// <summary>
         /// Builds the dataflow transformation handler for the given dataflow.
         /// </summary>
         /// <param name="dataflow">Dataflow whose transformation handler to create.</param>
@@ -146,15 +212,9 @@ public record Dataflow : Command
             if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
             var transformations = new List<Transformation>( dataflow.Transformations );
 
-            if ( dataflow.Keys.Any() )
-            {
-                transformations.Insert( 0, new Required
-                {
-                    AllowEmpty = false,
-                    Fields = dataflow.Keys,
-                    OnError = field => new( true, LogLevel.Error, $"Missing a required key field: {field}" )
-                } );
-            }
+            transformations.InsertRange( 0, GetReplacements( dataflow ) );
+            transformations.InsertRange( 0, GetDefaults( dataflow ) );
+            transformations.InsertRange( 0, GetKeysRequired( dataflow ) );
 
             return _transformationHandlerFactory.Create( new AggregateTransformation { Transformations = transformations }, cancellationToken );
         }
