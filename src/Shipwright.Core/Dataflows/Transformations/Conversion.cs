@@ -4,6 +4,7 @@
 
 using FluentValidation;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace Shipwright.Dataflows.Transformations;
 
@@ -184,6 +185,21 @@ public record Conversion : Transformation
         {
             converted = null;
         }
+
+        return converted != null;
+    };
+
+    /// <summary>
+    /// Delegate for converting and formatting Social Security Numbers.
+    /// </summary>
+    public static ConverterDelegate ToSocialSecurityNumber { get; } = ( object value, out object? converted ) =>
+    {
+        converted = value switch
+        {
+            string candidate when ( candidate = Regex.Replace( candidate, "[^0-9]", string.Empty ) ).Length == 9  =>
+                candidate.Insert( 3, "-" ).Insert( 6, "-" ),
+            _ => null
+        };
 
         return converted != null;
     };
