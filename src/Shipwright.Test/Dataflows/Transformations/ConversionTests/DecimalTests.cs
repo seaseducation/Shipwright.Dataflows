@@ -4,13 +4,13 @@
 
 namespace Shipwright.Dataflows.Transformations.ConversionTests;
 
-public class DateTimeTests
+public class DecimalTests
 {
     object value = new Fixture().Create<string>();
     object? converted;
-    bool method() => Conversion.ToDateTime( value, out converted );
+    bool method() => Conversion.ToDecimal( value, out converted );
 
-    public class WhenValueNotConvertible : DateTimeTests
+    public class WhenValueNotConvertible : DecimalTests
     {
         // ReSharper disable once MemberCanBePrivate.Global
         public class InconvertibleCases : TheoryData<object>
@@ -21,8 +21,8 @@ public class DateTimeTests
                 Add( Guid.NewGuid().ToString() );
 
                 // out-of-range
-                Add( long.MaxValue );
-                Add( long.MinValue );
+                Add( double.MaxValue );
+                Add( double.MinValue );
 
                 // inconvertible types
                 Add( Guid.NewGuid() );
@@ -42,7 +42,7 @@ public class DateTimeTests
         }
     }
 
-    public class WhenValueConvertible : DateTimeTests
+    public class WhenValueConvertible : DecimalTests
     {
         // ReSharper disable once MemberCanBePrivate.Global
         public class ConvertibleCases : TheoryData<object, object>
@@ -50,20 +50,24 @@ public class DateTimeTests
             public ConvertibleCases()
             {
                 // direct type conversion
-                Add( DateTime.MinValue, DateTime.MinValue );
-                Add( DateTime.MaxValue, DateTime.MaxValue );
+                Add( decimal.MinValue, decimal.MinValue );
+                Add( decimal.MaxValue, decimal.MaxValue );
+
+                // convertible cases
+                Add( int.MinValue, (decimal)int.MinValue );
+                Add( int.MaxValue, (decimal)int.MaxValue );
 
                 // parsing
-                Add( "2018-01-02 03:04:05", new DateTime( 2018, 01, 02, 03, 04, 05 ) );
-                Add( "Jan  2, 2018 12:30 AM", new DateTime( 2018, 01, 02, 00, 30, 00 ) );
-                Add( DateTime.MinValue.ToString( "o" ), DateTime.MinValue );
-                Add( DateTime.MaxValue.ToString( "o" ), DateTime.MaxValue );
+                Add( "123456789", 123456789M );
+                Add( "987,654,321", 987654321M );
+                Add( "1,234,567.89", 1234567.89M );
+                Add( "98,765.4321", 98765.4321M );
             }
         }
 
         [Theory]
         [ClassData(typeof(ConvertibleCases))]
-        public void converts_value_and_returns_true( object input, DateTime expected )
+        public void converts_value_and_returns_true( object input, decimal expected )
         {
             value = input;
             var success = method();

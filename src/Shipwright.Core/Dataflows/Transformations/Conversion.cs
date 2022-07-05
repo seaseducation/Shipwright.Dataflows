@@ -203,4 +203,27 @@ public record Conversion : Transformation
 
         return converted != null;
     };
+
+    /// <summary>
+    /// Delegate for converting a value to a decimal.
+    /// </summary>
+    public static ConverterDelegate ToDecimal { get; } = ( object value, out object? converted ) =>
+    {
+        try
+        {
+            converted = value switch
+            {
+                decimal number => number,
+                string text when decimal.TryParse( text, out var parsed ) => parsed,
+                IConvertible convertible => Convert.ToDecimal( convertible ),
+                _ => null
+            };
+        }
+        catch
+        {
+            converted = null;
+        }
+
+        return converted != null;
+    };
 }
