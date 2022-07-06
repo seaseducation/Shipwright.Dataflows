@@ -4,8 +4,12 @@
 
 using Dapper;
 using FluentValidation;
+using Identifiable;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Nito.AsyncEx;
 using Shipwright.Databases;
+using System.Collections.Concurrent;
 
 namespace Shipwright.Dataflows.Transformations;
 
@@ -71,6 +75,12 @@ public record DbLookup : Transformation
         new( true, LogLevel.Error, $"Lookup failed: [{count}] records were returned", param );
 
     /// <summary>
+    /// Whether to cache results to avoid multiple identical queries.
+    /// Defaults to true.
+    /// </summary>
+    public bool CacheResults { get; init; } = true;
+
+    /// <summary>
     /// Validator for the <see cref="DbLookup"/> transformation.
     /// </summary>
     public class Validator : AbstractValidator<DbLookup>
@@ -107,22 +117,60 @@ public record DbLookup : Transformation
     }
 
     /// <summary>
+    /// Defines a helper for the <see cref="DbLookup"/> transformation.
+    /// </summary>
+    public interface IHelper
+    {
+        /// <summary>
+        /// Queries the database to obtain matching records.
+        /// </summary>
+        /// <param name="parameters">Query parameters.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The results from the database.</returns>
+        public Task<IEnumerable<dynamic>> GetMatches( IDictionary<string, object?> parameters, CancellationToken cancellationToken );
+    }
+
+    /// <summary>
     /// Helper for the <see cref="DbLookup"/> transformation.
     /// </summary>
-    public class Helper
+    public class Helper : IHelper
     {
+        internal readonly DbLookup _transformation;
         internal readonly IDbConnectionFactory _connectionFactory;
 
-        public Helper( IDbConnectionFactory connectionFactory )
+        public Helper( DbLookup transformation, IDbConnectionFactory connectionFactory )
         {
+            _transformation = transformation ?? throw new ArgumentNullException( nameof(transformation) );
             _connectionFactory = connectionFactory ?? throw new ArgumentNullException( nameof(connectionFactory) );
         }
 
-        public virtual async Task<IEnumerable<dynamic>> GetMatches( DbConnectionInfo connectionInfo, string sql, IDictionary<string,object?> parameters, CancellationToken cancellationToken )
+        public virtual async Task<IEnumerable<dynamic>> GetMatches( IDictionary<string,object?> parameters, CancellationToken cancellationToken )
         {
-            var command = new CommandDefinition( sql, parameters: parameters, cancellationToken: cancellationToken );
-            using var connection = _connectionFactory.Create( connectionInfo );
+            var command = new CommandDefinition( _transformation.Sql, parameters: parameters, cancellationToken: cancellationToken );
+            using var connection = _connectionFactory.Create( _transformation.ConnectionInfo );
             return await connection.QueryAsync( command );
+        }
+    }
+
+    /// <summary>
+    /// Decorates a <see cref="IHelper"/> to add caching support.
+    /// </summary>
+    public class CacheHelperDecorator : IHelper
+    {
+        internal readonly IHelper _inner;
+        readonly ConcurrentDictionary<Guid, AsyncLazy<IEnumerable<dynamic>>> _cache = new();
+
+        public CacheHelperDecorator( IHelper inner )
+        {
+            _inner = inner ?? throw new ArgumentNullException( nameof(inner) );
+        }
+
+        public async Task<IEnumerable<dynamic>> GetMatches( IDictionary<string, object?> parameters, CancellationToken cancellationToken )
+        {
+            var json = JsonConvert.SerializeObject( parameters );
+            var key = NamedGuid.Compute( NamedGuidAlgorithm.SHA1, Guid.Empty, json );
+
+            return await _cache.GetOrAdd( key, _ => new( () => _inner.GetMatches( parameters, cancellationToken ) ) );
         }
     }
 
@@ -132,9 +180,9 @@ public record DbLookup : Transformation
     public class Handler : TransformationHandler
     {
         internal readonly DbLookup _transformation;
-        internal readonly Helper _helper;
+        internal readonly IHelper _helper;
 
-        public Handler( DbLookup transformation, Helper helper )
+        public Handler( DbLookup transformation, IHelper helper )
         {
             _transformation = transformation ?? throw new ArgumentNullException( nameof(transformation) );
             _helper = helper ?? throw new ArgumentNullException( nameof(helper) );
@@ -153,7 +201,7 @@ public record DbLookup : Transformation
                     : null;
             }
 
-            var matches = ( await _helper.GetMatches( _transformation.ConnectionInfo, _transformation.Sql, input, cancellationToken ) ).ToArray();
+            var matches = ( await _helper.GetMatches( input, cancellationToken ) ).ToArray();
 
             if ( matches.Length == 1 )
             {
@@ -189,7 +237,12 @@ public record DbLookup : Transformation
         {
             if ( transformation == null ) throw new ArgumentNullException( nameof(transformation) );
 
-            var helper = new Helper( _connectionFactory );
+            IHelper helper = new Helper( transformation, _connectionFactory );
+
+            helper = transformation.CacheResults
+                ? new CacheHelperDecorator( helper )
+                : helper;
+
             return Task.FromResult<ITransformationHandler>( new Handler( transformation, helper ) );
         }
     }

@@ -10,13 +10,8 @@ public class HandlerTests
 {
     DbLookup transformation = new Fixture().WithDataflowCustomization().Create<DbLookup>();
     IDbConnectionFactory connectionFactory = new Mock<IDbConnectionFactory>( MockBehavior.Strict ).Object;
-    Mock<DbLookup.Helper> helper;
+    Mock<DbLookup.IHelper> helper = new( MockBehavior.Strict );
     ITransformationHandler instance() => new DbLookup.Handler( transformation, helper?.Object! );
-
-    public HandlerTests()
-    {
-        helper = new( MockBehavior.Strict, connectionFactory );
-    }
 
     public class Constructor : HandlerTests
     {
@@ -77,7 +72,7 @@ public class HandlerTests
                     expectedRecord[field] = output[parameter ?? field] = fixture.Create<string>();
 
                 var actualParameters = new List<IDictionary<string, object?>>();
-                helper.Setup( _ => _.GetMatches( transformation.ConnectionInfo, transformation.Sql, Capture.In( actualParameters ), cancellationToken ) )
+                helper.Setup( _ => _.GetMatches( Capture.In( actualParameters ), cancellationToken ) )
                     .ReturnsAsync( new dynamic[] { output } );
 
                 await method();
@@ -112,7 +107,7 @@ public class HandlerTests
                 var expectedRecord = new Record( record.Data, record.Dataflow, record.Source, record.Position );
 
                 var actualParameters = new List<IDictionary<string, object?>>();
-                helper.Setup( _ => _.GetMatches( transformation.ConnectionInfo, transformation.Sql, Capture.In( actualParameters ), cancellationToken ) )
+                helper.Setup( _ => _.GetMatches( Capture.In( actualParameters ), cancellationToken ) )
                     .ReturnsAsync( output );
 
                 expectedRecord.Events.Add( transformation.OnFailure( matches, expectedParameter ) );
