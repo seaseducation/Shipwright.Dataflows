@@ -56,6 +56,12 @@ public record Conditional : Transformation
             _inner = inner ?? throw new ArgumentNullException( nameof(inner) );
         }
 
+        protected override async ValueTask DisposeAsyncCore()
+        {
+            await base.DisposeAsyncCore();
+            await _inner.DisposeAsync();
+        }
+
         public override async Task Transform( Record record, CancellationToken cancellationToken )
         {
             if ( record == null ) throw new ArgumentNullException( nameof(record) );

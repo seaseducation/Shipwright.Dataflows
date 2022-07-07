@@ -27,6 +27,19 @@ public class HandlerTests
         }
     }
 
+    public class Dispose : HandlerTests
+    {
+        ValueTask method() => instance().DisposeAsync();
+
+        [Fact]
+        public async Task disposes_inner_handler()
+        {
+            inner.Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
+            await method();
+            inner.Verify( _ => _.DisposeAsync(), Times.Once() );
+        }
+    }
+
     public abstract class Transform : HandlerTests
     {
         Record record = new Fixture().WithDataflowCustomization().Create<Record>();
