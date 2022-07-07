@@ -16,6 +16,7 @@ namespace Shipwright.Dataflows.Transformations;
 /// <summary>
 /// Transformation that performs a database lookup.
 /// </summary>
+[UsedImplicitly]
 public record DbLookup : Transformation
 {
     /// <summary>

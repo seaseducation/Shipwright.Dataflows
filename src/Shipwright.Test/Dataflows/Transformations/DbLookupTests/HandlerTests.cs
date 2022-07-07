@@ -2,14 +2,11 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
-using Shipwright.Databases;
-
 namespace Shipwright.Dataflows.Transformations.DbLookupTests;
 
 public class HandlerTests
 {
     DbLookup transformation = new Fixture().WithDataflowCustomization().Create<DbLookup>();
-    IDbConnectionFactory connectionFactory = new Mock<IDbConnectionFactory>( MockBehavior.Strict ).Object;
     Mock<DbLookup.IHelper> helper = new( MockBehavior.Strict );
     ITransformationHandler instance() => new DbLookup.Handler( transformation, helper?.Object! );
 
