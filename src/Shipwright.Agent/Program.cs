@@ -2,6 +2,8 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using Amazon.Runtime;
+using Amazon.Runtime.CredentialManagement;
 using FluentValidation;
 using Lamar.Microsoft.DependencyInjection;
 using Microsoft.Extensions.Configuration;
@@ -16,8 +18,25 @@ var host = Host.CreateDefaultBuilder( args );
 
 host.ConfigureAppConfiguration( ( context, configuration ) =>
 {
-    // command line options should be added last to override all other configuration
-    configuration.AddCommandLine( args );
+    // add base application configuration
+    configuration
+        .AddYamlFile( Path.Combine( "Properties", "appsettings.yml" ) )
+        .AddYamlFile( Path.Combine( "Properties", $"appsettings.{context.HostingEnvironment.EnvironmentName}.yml" ) )
+        .AddYamlFile( Path.Combine( "Properties", $"appsettings.User.yml" ), true );
+
+    // add aws parameter store secrets
+    // get credentials from the defined profile if present, otherwise run as the EC2 instance
+    var aws = configuration.Build().GetAWSOptions( "aws:parameterStore" );
+    var chain = new CredentialProfileStoreChain( aws.ProfilesLocation );
+    aws.Credentials = !string.IsNullOrWhiteSpace( aws.Profile ) && chain.TryGetAWSCredentials( aws.Profile, out var credentials )
+        ? credentials
+        : new InstanceProfileAWSCredentials();
+
+    configuration
+        .AddSystemsManager( "/shipwright.v6/all" )
+        .AddSystemsManager( $"/shipwright.v5/{context.HostingEnvironment.EnvironmentName}" )
+        // command line options should be added last to override all other configuration
+        .AddCommandLine( args );
 } );
 
 host.UseLamar( registry =>
