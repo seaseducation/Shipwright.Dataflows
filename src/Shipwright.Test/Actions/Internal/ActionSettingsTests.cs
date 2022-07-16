@@ -152,6 +152,37 @@ public abstract class ActionSettingsTests
                     }
                 }
 
+                public class WhenParentAndInGroup : WhenNoAlternateConfiguration
+                {
+                    public WhenParentAndInGroup()
+                    {
+                        context = context with { Tenant = "TestTenantInGroup" };
+                        action = "ActionWithParent";
+                    }
+
+                    [Fact]
+                    public void returns_parent_action_after_tenant_defaults()
+                    {
+                        var expected = Path.Combine( "Configurations", "ParentTenant", $"{action}.yml" );
+                        var actual = method();
+                        var provider = actual.Providers.Skip( 3 ).First().Should().BeOfType<YamlConfigurationProvider>().Subject;
+
+                        provider.Source.Optional.Should().BeTrue();
+                        provider.Source.Path.Should().Be( expected );
+                    }
+
+                    [Fact]
+                    public void returns_tenant_action_after_parent_action()
+                    {
+                        var expected = Path.Combine( "Configurations", "GroupFolder", context.Tenant, $"{action}.yml" );
+                        var actual = method();
+                        var provider = actual.Providers.Skip( 4 ).First().Should().BeOfType<YamlConfigurationProvider>().Subject;
+
+                        provider.Source.Optional.Should().BeTrue();
+                        provider.Source.Path.Should().Be( expected );
+                    }
+                }
+
                 public class WhenChainedParent : WhenNoAlternateConfiguration
                 {
                     public WhenChainedParent()

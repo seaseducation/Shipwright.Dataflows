@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 using Shipwright.Commands;
 using Shipwright.Dataflows.EventSinks;
 using Shipwright.Dataflows.Sources;
@@ -30,6 +31,17 @@ public record Dataflow : Command
     public int MaxDegreeOfParallelism { get; init; } = 1;
 
     /// <summary>
+    /// Comparer to use for field names.
+    /// Defaults to <see cref="StringComparer.OrdinalIgnoreCase"/>.
+    /// </summary>
+    public StringComparer FieldNameComparer { get; init; } = StringComparer.OrdinalIgnoreCase;
+
+    /// <summary>
+    /// Optional collection of fields that constitute key values in the dataflow.
+    /// </summary>
+    public ICollection<string> Keys { get; init; } = new List<string>();
+
+    /// <summary>
     /// Collection of data sources from which to read records.
     /// </summary>
     public ICollection<Source> Sources { get; init; } = new List<Source>();
@@ -54,6 +66,8 @@ public record Dataflow : Command
         {
             RuleFor( _ => _.Name ).NotEmpty();
             RuleFor( _ => _.MaxDegreeOfParallelism ).GreaterThan( 0 ).When( _ => _.MaxDegreeOfParallelism != -1 );
+            RuleFor( _ => _.Keys ).NotNull();
+            RuleForEach( _ => _.Keys ).NotEmpty();
             RuleFor( _ => _.Sources ).NotEmpty();
             RuleFor( _ => _.Transformations ).NotEmpty();
             RuleFor( _ => _.EventSinks ).NotEmpty();
@@ -90,12 +104,16 @@ public record Dataflow : Command
         /// <param name="dataflow">Dataflow command for which to build options.</param>
         /// <param name="cancellationToken">Cancellation token to include in options.</param>
         /// <returns>The completed dataflow options.</returns>
-        public virtual ExecutionDataflowBlockOptions GetDataflowBlockOptions( Dataflow dataflow, CancellationToken cancellationToken ) => new()
+        public virtual ExecutionDataflowBlockOptions GetDataflowBlockOptions( Dataflow dataflow, CancellationToken cancellationToken )
         {
-            MaxDegreeOfParallelism = dataflow.MaxDegreeOfParallelism,
-            CancellationToken = cancellationToken,
-            BoundedCapacity = dataflow.MaxDegreeOfParallelism,
-        };
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
+            return new()
+            {
+                MaxDegreeOfParallelism = dataflow.MaxDegreeOfParallelism,
+                CancellationToken = cancellationToken,
+                BoundedCapacity = dataflow.MaxDegreeOfParallelism,
+            };
+        }
 
         /// <summary>
         /// Builds the options to use for all dataflow links.
@@ -111,8 +129,11 @@ public record Dataflow : Command
         /// <param name="dataflow">Dataflow whose data source reader to create.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The completed data source reader.</returns>
-        public virtual Task<ISourceReader> GetSourceReader( Dataflow dataflow, CancellationToken cancellationToken ) =>
-            _readerFactory.Create( new AggregateSource { Sources = dataflow.Sources }, dataflow, cancellationToken );
+        public virtual Task<ISourceReader> GetSourceReader( Dataflow dataflow, CancellationToken cancellationToken )
+        {
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
+            return _readerFactory.Create( new AggregateSource { Sources = dataflow.Sources }, dataflow, cancellationToken );
+        }
 
         /// <summary>
         /// Builds the dataflow transformation handler for the given dataflow.
@@ -120,8 +141,23 @@ public record Dataflow : Command
         /// <param name="dataflow">Dataflow whose transformation handler to create.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The completed transformation handler.</returns>
-        public virtual Task<ITransformationHandler> GetTransformationHandler( Dataflow dataflow, CancellationToken cancellationToken ) =>
-            _transformationHandlerFactory.Create( new AggregateTransformation { Transformations = dataflow.Transformations }, cancellationToken );
+        public virtual Task<ITransformationHandler> GetTransformationHandler( Dataflow dataflow, CancellationToken cancellationToken )
+        {
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
+            var transformations = new List<Transformation>( dataflow.Transformations );
+
+            if ( dataflow.Keys.Any() )
+            {
+                transformations.Insert( 0, new Required
+                {
+                    AllowEmpty = false,
+                    Fields = dataflow.Keys,
+                    OnError = field => new( true, LogLevel.Error, $"Missing a required key field: {field}" )
+                } );
+            }
+
+            return _transformationHandlerFactory.Create( new AggregateTransformation { Transformations = transformations }, cancellationToken );
+        }
 
         /// <summary>
         /// Builds the dataflow event sink handler for the given dataflow.
@@ -129,8 +165,11 @@ public record Dataflow : Command
         /// <param name="dataflow">Dataflow whose event sink handler to create.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The completed event sink handler.</returns>
-        public virtual Task<IEventSinkHandler> GetEventSinkHandler( Dataflow dataflow, CancellationToken cancellationToken ) =>
-            _eventSinkHandlerFactory.Create( new AggregateEventSink { EventSinks = dataflow.EventSinks }, dataflow, cancellationToken );
+        public virtual Task<IEventSinkHandler> GetEventSinkHandler( Dataflow dataflow, CancellationToken cancellationToken )
+        {
+            if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
+            return _eventSinkHandlerFactory.Create( new AggregateEventSink { EventSinks = dataflow.EventSinks }, dataflow, cancellationToken );
+        }
     }
 
     /// <summary>

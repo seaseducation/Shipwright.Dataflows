@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders.Internal;
 
 namespace Shipwright.Actions.Internal;
 
@@ -33,8 +34,19 @@ public class ActionSettings : IActionSettings
         // add parent configuration hierarchy to path list
         while ( !string.IsNullOrWhiteSpace( config ) )
         {
+            // locate config folder - it may be nested in a subfolder
+            var matching = Directory.GetDirectories( root, config, SearchOption.AllDirectories )
+                .Select( folder => Path.Combine( folder, $"{action}.yml" ) )
+                .Where( File.Exists )
+                .ToArray();
+
             // build path for the configuration file
-            var path = Path.Combine( root, config, $"{action}.yml" );
+            var path = matching.Length switch
+            {
+                0 => Path.Combine( root, config, $"{action}.yml" ),
+                1 => matching.Single(),
+                _ => throw new InvalidOperationException( $"Found {matching.Length} conflicting configuration files for {config}/{action}" ),
+            };
 
             if ( paths.Contains( path ) )
                 throw new InvalidOperationException( "Circular parent hierarchy in action configuration" );

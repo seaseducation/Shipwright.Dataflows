@@ -9,12 +9,46 @@ namespace Shipwright.Dataflows;
 /// <summary>
 /// Represents data being processed by a dataflow.
 /// </summary>
-/// <param name="Data">Dictionary that backs the record.</param>
-/// <param name="Dataflow">Dataflow in which the record was generated.</param>
-/// <param name="Source">Record source that produced the record.</param>
-/// <param name="Position">Position of the record within the dataflow source.</param>
-public record Record( IDictionary<string,object?> Data, Dataflow Dataflow, Source Source, long Position )
+public record Record
 {
+    /// <summary>
+    /// Dictionary containing the current values of the record.
+    /// </summary>
+    public IDictionary<string,object?> Data { get; }
+
+    /// <summary>
+    /// Dictionary containing the original values of the record from the data source.
+    /// </summary>
+    public IReadOnlyDictionary<string,object?> Original { get; }
+
+    /// <summary>
+    /// Dataflow in which the record was generated.
+    /// </summary>
+    public Dataflow Dataflow { get; }
+
+    /// <summary>
+    /// Record source that produced the record.
+    /// </summary>
+    public Source Source { get; }
+
+    /// <summary>
+    /// Position of the record within the dataflow source.
+    /// </summary>
+    public long Position { get; }
+
+    public Record( IDictionary<string,object?> data, Dataflow dataflow, Source source, long position )
+    {
+        if ( data == null ) throw new ArgumentNullException( nameof(data) );
+        if ( dataflow == null ) throw new ArgumentNullException( nameof(dataflow) );
+        if ( data == null ) throw new ArgumentNullException( nameof(data) );
+
+        Data = new Dictionary<string, object?>( data, dataflow.FieldNameComparer );
+        Original = new Dictionary<string, object?>( data, dataflow.FieldNameComparer );
+        Dataflow = dataflow;
+        Source = source ?? throw new ArgumentNullException( nameof(source) );
+        Position = position;
+    }
+
     /// <summary>
     /// Indexer for accessing data in the underlying data.
     /// </summary>

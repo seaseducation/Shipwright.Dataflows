@@ -60,6 +60,38 @@ public class ValidatorTests
         }
     }
 
+    public class Keys : ValidatorTests
+    {
+        [Fact]
+        public async Task cannot_be_null()
+        {
+            instance = instance with { Keys = null! };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.Keys );
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [WhitespaceCases]
+        public async Task cannot_have_null_or_whitespace_elements( string value )
+        {
+            instance = instance with { Keys = new List<string> { value } };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.Keys );
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        public async Task valid_when_empty_or_has_given_contents( int numberOfKeys )
+        {
+            instance = instance with { Keys = new Fixture().CreateMany<string>( numberOfKeys ).ToList() };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.Keys );
+        }
+    }
+
     public class Sources : ValidatorTests
     {
         [Fact]
