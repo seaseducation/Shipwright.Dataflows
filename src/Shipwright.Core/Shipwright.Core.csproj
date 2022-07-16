@@ -7,4 +7,9 @@
     <RootNamespace>Shipwright</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.0.1" />
+    <PackageReference Include="Lamar.Microsoft.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+
 </Project>
