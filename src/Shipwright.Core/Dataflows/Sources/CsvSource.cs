@@ -83,6 +83,14 @@ public record CsvSource : Source
 
         async IAsyncEnumerable<Record> GetRecordStream( bool preview, [EnumeratorCancellation] CancellationToken cancellationToken )
         {
+            // abort if the file does not exist
+            if ( !File.Exists( _source.Path ) )
+            {
+                var file = System.IO.Path.GetFileName( _source.Path );
+                _source.Events.Add( new( true, LogLevel.Critical, $"Could not find file {file}", new { _source.Path } ) );
+                yield break;
+            }
+
             using var textReader = File.OpenText( _source.Path );
             bool canReadText() => !textReader.EndOfStream && !cancellationToken.IsCancellationRequested;
 
@@ -149,7 +157,6 @@ public record CsvSource : Source
                     {
                         Value = ex switch
                         {
-                            FileNotFoundException fnf => new { _source.Path },
                             BadDataException bad => new { _source.Path, bad.Context.Parser.RawRow },
                             _ => new { ex.StackTrace }
                         }

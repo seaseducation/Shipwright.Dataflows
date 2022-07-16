@@ -3,6 +3,7 @@
 // All Rights Reserved.
 
 global using AutoFixture;
+global using FluentAssertions;
 global using FluentValidation;
 global using FluentValidation.TestHelper;
 global using Moq;

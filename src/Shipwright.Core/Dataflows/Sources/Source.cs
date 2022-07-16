@@ -20,4 +20,9 @@ public abstract record Source : Command<ISourceReader>
     /// Collection of log events that apply to the data source.
     /// </summary>
     public ICollection<LogEvent> Events { get; init; } = new List<LogEvent>();
+
+    /// <summary>
+    /// Generates text representation of the source, using the description if provided and defaulting to the type name.
+    /// </summary>
+    public override string ToString() => Description ?? GetType().Name;
 }
