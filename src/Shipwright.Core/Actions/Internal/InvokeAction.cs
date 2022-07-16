@@ -43,13 +43,13 @@ public record InvokeAction : Command
     public class Handler : CommandHandler<InvokeAction>
     {
         readonly IServiceContext _container;
-        readonly IActionSettings _settings;
+        readonly IActionSettingsFactory _settingsFactory;
         readonly ILogger<InvokeAction> _logger;
 
-        public Handler( IServiceContext container, IActionSettings settings, ILogger<InvokeAction> logger )
+        public Handler( IServiceContext container, IActionSettingsFactory settingsFactory, ILogger<InvokeAction> logger )
         {
             _container = container ?? throw new ArgumentNullException( nameof(container) );
-            _settings = settings ?? throw new ArgumentNullException( nameof(settings) );
+            _settingsFactory = settingsFactory ?? throw new ArgumentNullException( nameof(settingsFactory) );
             _logger = logger ?? throw new ArgumentNullException( nameof(logger) );
         }
 
@@ -68,7 +68,7 @@ public record InvokeAction : Command
                 yield break;
             }
 
-            var tenants = _settings.For( command.Action, command.Context )
+            var tenants = _settingsFactory.For( command.Action, command.Context )
                 .GetSection( "tenants" )
                 .GetChildren()
                 .ToArray();

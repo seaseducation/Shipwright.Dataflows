@@ -15,9 +15,9 @@ namespace Shipwright.Actions.Internal.InvokeActionTests;
 public abstract class HandlerTests
 {
     Mock<IServiceContext> container = new( MockBehavior.Strict );
-    Mock<IActionSettings> settings = new( MockBehavior.Strict );
+    Mock<IActionSettingsFactory> settingsFactory = new( MockBehavior.Strict );
     ILogger<InvokeAction> logger = new NullLogger<InvokeAction>();
-    ICommandHandler<InvokeAction> instance() => new InvokeAction.Handler( container?.Object!, settings?.Object!, logger );
+    ICommandHandler<InvokeAction> instance() => new InvokeAction.Handler( container?.Object!, settingsFactory?.Object!, logger );
 
     public class Constructor : HandlerTests
     {
@@ -29,10 +29,10 @@ public abstract class HandlerTests
         }
 
         [Fact]
-        public void requires_settings()
+        public void requires_settingsFactory()
         {
-            settings = null!;
-            Assert.Throws<ArgumentNullException>( nameof(settings), instance );
+            settingsFactory = null!;
+            Assert.Throws<ArgumentNullException>( nameof(settingsFactory), instance );
         }
 
         [Fact]
@@ -107,7 +107,7 @@ public abstract class HandlerTests
                 container.Setup( _ => _.GetInstance<ICommandDispatcher>() ).Returns( dispatcher.Object );
 
                 var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
-                settings.Setup( _ => _.For( command.Action, command.Context ) ).Returns( configuration );
+                settingsFactory.Setup( _ => _.For( command.Action, command.Context ) ).Returns( configuration );
 
                 var expectedActions = new List<FakeAction>();
                 var expectedContexts = new List<ActionContext>();

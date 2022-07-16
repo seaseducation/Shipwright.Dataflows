@@ -9,12 +9,12 @@ using NetEscapades.Configuration.Yaml;
 
 namespace Shipwright.Actions.Internal;
 
-public abstract class ActionSettingsTests
+public abstract class ActionSettingsFactoryTests
 {
     IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
-    IActionSettings instance() => new ActionSettings( configuration );
+    IActionSettingsFactory instance() => new ActionSettingsFactory( configuration );
 
-    public class Constructor : ActionSettingsTests
+    public class Constructor : ActionSettingsFactoryTests
     {
         [Fact]
         public void requires_configuration()
@@ -24,7 +24,7 @@ public abstract class ActionSettingsTests
         }
     }
 
-    public abstract class For : ActionSettingsTests
+    public abstract class For : ActionSettingsFactoryTests
     {
         string action;
         ActionContext context;

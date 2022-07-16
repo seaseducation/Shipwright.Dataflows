@@ -7,9 +7,9 @@ using Microsoft.Extensions.Configuration;
 namespace Shipwright.Actions;
 
 /// <summary>
-/// Provides configuration information for actions.
+/// Factory for obtaining configuration information for actions.
 /// </summary>
-public interface IActionSettings
+public interface IActionSettingsFactory
 {
     /// <summary>
     /// Obtains configuration for the specified action.
