@@ -13,6 +13,10 @@ using Shipwright.Actions;
 using Shipwright.Actions.Internal;
 using Shipwright.Commands;
 using Shipwright.Commands.Internal;
+using Shipwright.Dataflows.Sources;
+using Shipwright.Dataflows.Sources.Internal;
+using Shipwright.Dataflows.Transformations;
+using Shipwright.Dataflows.Transformations.Internal;
 
 var host = Host.CreateDefaultBuilder( args );
 
@@ -49,6 +53,8 @@ host.UseLamar( registry =>
         scanner.WithDefaultConventions();
         scanner.ConnectImplementationsToTypesClosing( typeof(ICommandHandler<,>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(IValidator<>) );
+        scanner.ConnectImplementationsToTypesClosing( typeof(ISourceReaderFactory<>) );
+        scanner.ConnectImplementationsToTypesClosing( typeof(ITransformationHandlerFactory<>) );
 
         // add all discovered actions by type name
         scanner.AddAllTypesOf<IActionFactory>().NameBy( type => type.Name );
@@ -57,6 +63,10 @@ host.UseLamar( registry =>
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandValidationDecorator<,>) );
     registry.For( typeof(ICommandHandler<,>) ).DecorateAllWith( typeof(CommandCancellationDecorator<,>) );
     registry.For( typeof(IActionFactory) ).DecorateAllWith( typeof(CancellationActionDecorator) );
+    registry.For( typeof(ISourceReaderFactory<>) ).DecorateAllWith( typeof(SourceReaderFactoryValidationDecorator<>) );
+    registry.For( typeof(ISourceReaderFactory<>) ).DecorateAllWith( typeof(SourceReaderFactoryCancellationDecorator<>) );
+    registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryValidationDecorator<>) );
+    registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryCancellationDecorator<>) );
 
     // register background task to run
     registry.AddHostedService<Program>();
