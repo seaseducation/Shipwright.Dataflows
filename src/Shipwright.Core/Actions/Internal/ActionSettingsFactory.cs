@@ -2,6 +2,7 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using Lamar;
 using Microsoft.Extensions.Configuration;
 
 namespace Shipwright.Actions.Internal;
@@ -12,10 +13,12 @@ namespace Shipwright.Actions.Internal;
 public class ActionSettingsFactory : IActionSettingsFactory
 {
     readonly IConfiguration _configuration;
+    readonly IServiceContext _container;
 
-    public ActionSettingsFactory( IConfiguration configuration )
+    public ActionSettingsFactory( IConfiguration configuration, IServiceContext container )
     {
         _configuration = configuration ?? throw new ArgumentNullException( nameof(configuration) );
+        _container = container ?? throw new ArgumentNullException( nameof(container) );
     }
 
     public IConfigurationRoot For( string action, ActionContext context )
@@ -70,5 +73,17 @@ public class ActionSettingsFactory : IActionSettingsFactory
             builder.AddYamlFile( path, true );
 
         return builder.Build();
+    }
+
+    public Task<TSettings> Create<TSettings>( ActionContext context, IConfigurationRoot configuration, CancellationToken cancellationToken ) where TSettings : IActionSettings
+    {
+        if ( context == null ) throw new ArgumentNullException( nameof(context) );
+        if ( configuration == null ) throw new ArgumentNullException( nameof(configuration) );
+
+        var settingsType = typeof(TSettings);
+        var factoryType = typeof(IActionSettingsFactory<>).MakeGenericType( settingsType );
+        dynamic factory = _container.GetInstance( factoryType );
+
+        return factory.Create( context, configuration, cancellationToken );
     }
 }

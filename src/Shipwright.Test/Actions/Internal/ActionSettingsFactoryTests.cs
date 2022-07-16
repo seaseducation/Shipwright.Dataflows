@@ -2,8 +2,8 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
-using AutoFixture;
 using FluentAssertions;
+using Lamar;
 using Microsoft.Extensions.Configuration;
 using NetEscapades.Configuration.Yaml;
 
@@ -12,7 +12,8 @@ namespace Shipwright.Actions.Internal;
 public abstract class ActionSettingsFactoryTests
 {
     IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
-    IActionSettingsFactory instance() => new ActionSettingsFactory( configuration );
+    Mock<IServiceContext> container = new( MockBehavior.Strict );
+    IActionSettingsFactory instance() => new ActionSettingsFactory( configuration, container?.Object! );
 
     public class Constructor : ActionSettingsFactoryTests
     {
@@ -21,6 +22,13 @@ public abstract class ActionSettingsFactoryTests
         {
             configuration = null!;
             Assert.Throws<ArgumentNullException>( nameof(configuration), instance );
+        }
+
+        [Fact]
+        public void requires_container()
+        {
+            container = null!;
+            Assert.Throws<ArgumentNullException>( nameof(container), instance );
         }
     }
 
@@ -464,6 +472,43 @@ public abstract class ActionSettingsFactoryTests
                     }
                 }
             }
+        }
+    }
+
+    public class Create : ActionSettingsFactoryTests
+    {
+        ActionContext context = new Fixture().Create<ActionContext>();
+        new IConfigurationRoot configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        CancellationToken cancellationToken;
+        Task<FakeSettings> method() => instance().Create<FakeSettings>( context, configuration, cancellationToken );
+
+        [Fact]
+        public async Task requires_context()
+        {
+            context = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(context), method );
+        }
+
+        [Fact]
+        public async Task requires_configuration()
+        {
+            configuration = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(configuration), method );
+        }
+
+        [Theory]
+        [BooleanCases]
+        public async Task returns_settings_from_located_factory( bool canceled )
+        {
+            cancellationToken = new( canceled );
+
+            var expected = new FakeSettings();
+            var factory = new Mock<IActionSettingsFactory<FakeSettings>>( MockBehavior.Strict );
+            container.Setup( _ => _.GetInstance( typeof(IActionSettingsFactory<FakeSettings>) ) ).Returns( factory.Object );
+            factory.Setup( _ => _.Create( context, configuration, cancellationToken ) ).ReturnsAsync( expected );
+
+            var actual = await method();
+            actual.Should().BeSameAs( expected );
         }
     }
 }

@@ -73,6 +73,9 @@ public record InvokeAction : Command
                 .GetChildren()
                 .ToArray();
 
+            if ( tenants.Length == 0 )
+                throw new InvalidOperationException( $"No tenants are defined for the action {command.Action}" );
+
             foreach ( var tenant in tenants )
             {
                 // if no specific configurations are required, default to the tenant

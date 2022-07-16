@@ -60,6 +60,7 @@ host.UseLamar( registry =>
         scanner.ConnectImplementationsToTypesClosing( typeof(ITransformationHandlerFactory<>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(IEventSinkHandlerFactory<>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(IDbConnectionFactory<>) );
+        scanner.ConnectImplementationsToTypesClosing( typeof(IActionSettingsFactory<>) );
 
         // add all discovered actions by type name
         scanner.AddAllTypesOf<IActionFactory>().NameBy( type => type.Name );
