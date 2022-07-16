@@ -2,6 +2,8 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using Shipwright.Dataflows.EventSinks;
+
 namespace Shipwright.Dataflows.Sources;
 
 /// <summary>
@@ -12,7 +14,8 @@ public interface ISourceReader
     /// <summary>
     /// Reads records from the data source.
     /// </summary>
+    /// <param name="eventSinkHandler">Event sink handler for notifications.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A stream of dataflow records from the source.</returns>
-    public IAsyncEnumerable<Record> Read( CancellationToken cancellationToken );
+    public IAsyncEnumerable<Record> Read( IEventSinkHandler eventSinkHandler, CancellationToken cancellationToken );
 }

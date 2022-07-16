@@ -13,6 +13,8 @@ using Shipwright.Actions;
 using Shipwright.Actions.Internal;
 using Shipwright.Commands;
 using Shipwright.Commands.Internal;
+using Shipwright.Dataflows.EventSinks;
+using Shipwright.Dataflows.EventSinks.Internal;
 using Shipwright.Dataflows.Sources;
 using Shipwright.Dataflows.Sources.Internal;
 using Shipwright.Dataflows.Transformations;
@@ -55,6 +57,7 @@ host.UseLamar( registry =>
         scanner.ConnectImplementationsToTypesClosing( typeof(IValidator<>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(ISourceReaderFactory<>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(ITransformationHandlerFactory<>) );
+        scanner.ConnectImplementationsToTypesClosing( typeof(IEventSinkHandlerFactory<>) );
 
         // add all discovered actions by type name
         scanner.AddAllTypesOf<IActionFactory>().NameBy( type => type.Name );
@@ -68,6 +71,8 @@ host.UseLamar( registry =>
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryValidationDecorator<>) );
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryEventDecorator<>) );
     registry.For( typeof(ITransformationHandlerFactory<>) ).DecorateAllWith( typeof(TransformationHandlerFactoryCancellationDecorator<>) );
+    registry.For( typeof(IEventSinkHandlerFactory<>) ).DecorateAllWith( typeof(EventSinkHandlerFactoryValidationDecorator<>) );
+    registry.For( typeof(IEventSinkHandlerFactory<>) ).DecorateAllWith( typeof(EventSinkHandlerFactoryCancellationDecorator<>) );
 
     // register background task to run
     registry.AddHostedService<Program>();

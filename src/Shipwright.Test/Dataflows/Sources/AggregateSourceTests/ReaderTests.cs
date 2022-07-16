@@ -4,6 +4,7 @@
 
 using AutoFixture;
 using FluentAssertions;
+using Shipwright.Dataflows.EventSinks;
 
 namespace Shipwright.Dataflows.Sources.AggregateSourceTests;
 
@@ -24,7 +25,15 @@ public class ReaderTests
 
     public class Read : ReaderTests
     {
-        ValueTask<List<Record>> method() => instance().Read( default ).ToListAsync();
+        Mock<IEventSinkHandler> eventSinkHandler = new( MockBehavior.Strict );
+        ValueTask<List<Record>> method() => instance().Read( eventSinkHandler?.Object!, default ).ToListAsync();
+
+        [Fact]
+        public async Task requires_eventSinkHandler()
+        {
+            eventSinkHandler = null!;
+            await Assert.ThrowsAsync<ArgumentNullException>( nameof(eventSinkHandler), () => method().AsTask() );
+        }
 
         [Fact]
         public async Task returns_records_from_all_child_readers()
@@ -35,7 +44,7 @@ public class ReaderTests
             foreach ( var reader in readers )
             {
                 var records = fixture.CreateMany<Record>().ToArray();
-                reader.Setup( _ => _.Read( default ) ).Returns( records.ToAsyncEnumerable() );
+                reader.Setup( _ => _.Read( eventSinkHandler.Object, default ) ).Returns( records.ToAsyncEnumerable() );
                 expected.AddRange( records );
             }
 

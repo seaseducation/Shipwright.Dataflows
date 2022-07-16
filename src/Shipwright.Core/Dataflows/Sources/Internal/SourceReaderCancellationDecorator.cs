@@ -2,6 +2,7 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using Shipwright.Dataflows.EventSinks;
 using System.Runtime.CompilerServices;
 
 namespace Shipwright.Dataflows.Sources.Internal;
@@ -19,9 +20,11 @@ public class SourceReaderCancellationDecorator : ISourceReader
         _inner = inner ?? throw new ArgumentNullException( nameof(inner) );
     }
 
-    public async IAsyncEnumerable<Record> Read( [EnumeratorCancellation] CancellationToken cancellationToken )
+    public async IAsyncEnumerable<Record> Read( IEventSinkHandler eventSinkHandler, [EnumeratorCancellation] CancellationToken cancellationToken )
     {
-        await foreach ( var record in _inner.Read( cancellationToken ) )
+        if ( eventSinkHandler == null ) throw new ArgumentNullException( nameof(eventSinkHandler) );
+        
+        await foreach ( var record in _inner.Read( eventSinkHandler, cancellationToken ) )
         {
             if ( cancellationToken.IsCancellationRequested ) break;
             yield return record;

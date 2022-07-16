@@ -5,6 +5,7 @@
 using FluentValidation;
 using Lamar;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Shipwright.Commands;
 
 namespace Shipwright.Actions.Internal;
@@ -43,11 +44,13 @@ public record InvokeAction : Command
     {
         readonly IServiceContext _container;
         readonly IActionSettings _settings;
+        readonly ILogger<InvokeAction> _logger;
 
-        public Handler( IServiceContext container, IActionSettings settings )
+        public Handler( IServiceContext container, IActionSettings settings, ILogger<InvokeAction> logger )
         {
             _container = container ?? throw new ArgumentNullException( nameof(container) );
             _settings = settings ?? throw new ArgumentNullException( nameof(settings) );
+            _logger = logger ?? throw new ArgumentNullException( nameof(logger) );
         }
 
         /// <summary>
@@ -91,7 +94,10 @@ public record InvokeAction : Command
             foreach ( var context in contexts )
             {
                 var action = await factory.Create( context, cancellationToken );
+
+                _logger.LogInformation( "Starting action {Action} for tenant {Tenant}", command.Action, context.Tenant );
                 await dispatcher.Execute( action, cancellationToken );
+                _logger.LogInformation( "Completed action {Action} for tenant {Tenant}", command.Action, context.Tenant );
             }
         }
     }
