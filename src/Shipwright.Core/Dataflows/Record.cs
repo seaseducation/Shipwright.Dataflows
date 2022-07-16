@@ -29,4 +29,19 @@ public record Record( IDictionary<string,object?> Data, Dataflow Dataflow, Sourc
     /// Collection of events that have been recorded against the record.
     /// </summary>
     public ICollection<LogEvent> Events { get; init; } = new List<LogEvent>();
+
+    /// <summary>
+    /// Returns whether the given field contains a non-null value.
+    /// </summary>
+    /// <param name="key">Key of the field whose value to check.</param>
+    /// <param name="value">Value found, if applicable.</param>
+    public bool TryGetValue( string key, out object value )
+    {
+        value = Data.TryGetValue( key, out var found )
+            ? found!
+            : null!;
+
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+        return value != null;
+    }
 }
