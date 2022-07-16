@@ -13,6 +13,7 @@ using Shipwright.Actions;
 using Shipwright.Actions.Internal;
 using Shipwright.Commands;
 using Shipwright.Commands.Internal;
+using Shipwright.Databases;
 using Shipwright.Dataflows.EventSinks;
 using Shipwright.Dataflows.EventSinks.Internal;
 using Shipwright.Dataflows.Sources;
@@ -58,6 +59,7 @@ host.UseLamar( registry =>
         scanner.ConnectImplementationsToTypesClosing( typeof(ISourceReaderFactory<>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(ITransformationHandlerFactory<>) );
         scanner.ConnectImplementationsToTypesClosing( typeof(IEventSinkHandlerFactory<>) );
+        scanner.ConnectImplementationsToTypesClosing( typeof(IDbConnectionFactory<>) );
 
         // add all discovered actions by type name
         scanner.AddAllTypesOf<IActionFactory>().NameBy( type => type.Name );
