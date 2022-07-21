@@ -2,6 +2,8 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
+using Identifiable;
+using Newtonsoft.Json;
 using System.Collections;
 
 namespace Shipwright.Dataflows.Transformations.DbUpsertTests;
@@ -9,17 +11,26 @@ namespace Shipwright.Dataflows.Transformations.DbUpsertTests;
 public class HandlerTests
 {
     readonly Fixture fixture = new Fixture().WithDataflowCustomization();
+    DbUpsert transformation;
     Mock<DbUpsert.Handler> mock;
-    Mock<DbUpsert.Handler> instance() => new( MockBehavior.Default ) { CallBase = true };
+    Mock<DbUpsert.Handler> instance() => new( MockBehavior.Default, transformation ) { CallBase = true };
 
     public HandlerTests()
     {
+        transformation = fixture.Create<DbUpsert>();
         mock = instance();
     }
 
     public class Constructor : HandlerTests
     {
-        ITransformationHandler constructor() => new DbUpsert.Handler();
+        ITransformationHandler constructor() => new DbUpsert.Handler( transformation );
+
+        [Fact]
+        public void requires_transformation()
+        {
+            transformation = null!;
+            Assert.Throws<ArgumentNullException>( nameof(transformation), constructor );
+        }
     }
 
     public abstract class Transform : HandlerTests
@@ -125,6 +136,162 @@ public class HandlerTests
 
                 await Assert.ThrowsAsync<InvalidOperationException>( method );
                 releaser.Verify( _ => _.Dispose(), Times.Once() );
+            }
+        }
+    }
+
+    public class GetSemaphore : HandlerTests
+    {
+        Guid id = Guid.NewGuid();
+        SemaphoreSlim method() => mock.Object.GetSemaphore( id );
+
+        [Fact]
+        public void successive_calls_increment_counter()
+        {
+            using var semaphore = method();
+            mock.Object._semaphores[id].Semaphore.Should().BeSameAs( semaphore );
+            mock.Object._semaphores[id].Count.Should().Be( 1 );
+
+            var next = method();
+            next.Should().BeSameAs( semaphore );
+            mock.Object._semaphores[id].Semaphore.Should().BeSameAs( semaphore );
+            mock.Object._semaphores[id].Count.Should().Be( 2 );
+        }
+    }
+
+    public class ReleaseSemaphore : HandlerTests
+    {
+        Guid id = Guid.NewGuid();
+        void method() => mock.Object.ReleaseSemaphore( id );
+
+        public class WhenLastReference : ReleaseSemaphore
+        {
+            [Fact]
+            public void removes_reference_and_disposes_semaphore()
+            {
+                var counter = mock.Object._semaphores[id] = new();
+                counter.Semaphore.Wait();
+                method();
+                mock.Object._semaphores.ContainsKey( id ).Should().BeFalse();
+                Assert.Throws<ObjectDisposedException>( () => counter.Semaphore.Wait() );
+            }
+        }
+
+        public class WhenNotLastReference : ReleaseSemaphore
+        {
+            [Fact]
+            public void decrements_counter_and_releases_semaphore()
+            {
+                var count = 5;
+                var counter = mock.Object._semaphores[id] = new() { Count = count };
+                counter.Semaphore.Wait();
+                method();
+                mock.Object._semaphores[id].Should().BeSameAs( counter );
+                counter.Count.Should().Be( count - 1 );
+                counter.Semaphore.CurrentCount.Should().Be( 1 );
+            }
+        }
+    }
+
+    public class GetRecordIdentifier : HandlerTests
+    {
+        Record record;
+        Guid method() => mock.Object.GetRecordIdentifier( record );
+
+        public GetRecordIdentifier()
+        {
+            record = fixture.Create<Record>();
+        }
+
+        [Fact]
+        public void computes_named_identifier_for_key_values()
+        {
+            var values = new Dictionary<string, object?>();
+
+            // expect empty values for existing keys
+            foreach ( var ( type, _, column ) in transformation.Fields.ToArray() )
+                if ( type == DbUpsert.ColumnType.Key )
+                    values[column] = null;
+
+            // add values for additional keys
+            var keys = fixture.CreateMany<(string field, string column)>().ToList();
+
+            foreach ( var ( field, column ) in keys )
+            {
+                record[field] = values[column] = fixture.Create<string>();
+                transformation.Fields.Add( new( DbUpsert.ColumnType.Key, field, column ) );
+            }
+
+            var expected = NamedGuid.Compute( NamedGuidAlgorithm.SHA1, Guid.Empty, JsonConvert.SerializeObject( values ).ToUpperInvariant() );
+            var actual = method();
+            actual.Should().Be( expected );
+        }
+    }
+
+    public class Lock : HandlerTests
+    {
+        Record record;
+        CancellationToken cancellationToken;
+        Task<IDisposable> method() => mock.Object.Lock( record, cancellationToken );
+
+        protected Lock()
+        {
+            record = fixture.Create<Record>();
+        }
+
+        public class WhenCanceled : Lock
+        {
+            [Fact]
+            public async Task throws_task_canceled()
+            {
+                cancellationToken = new( true );
+                await Assert.ThrowsAsync<TaskCanceledException>( method );
+            }
+        }
+
+        public class WhenNotCanceled : Lock
+        {
+            public WhenNotCanceled() => cancellationToken = new( false );
+
+            [Fact]
+            public async Task returns_disposable_reference_that_releases_semaphore()
+            {
+                var id = Guid.NewGuid();
+                mock.Setup( _ => _.GetRecordIdentifier( record ) ).Returns( id );
+
+                using ( var actual = await method() )
+                {
+                    actual.Should().BeOfType<DbUpsert.Handler.Releaser>();
+                    mock.Object._semaphores[id].Count.Should().Be( 1 );
+                    mock.Object._semaphores[id].Semaphore.CurrentCount.Should().Be( 0 );
+                }
+
+                mock.Object._semaphores.ContainsKey( id ).Should().BeFalse();
+            }
+
+            [Fact]
+            public async Task prevents_entry_until_released()
+            {
+                var id = Guid.NewGuid();
+                mock.Setup( _ => _.GetRecordIdentifier( record ) ).Returns( id );
+
+                var first = await method();
+
+                // capture as task
+                var next = Task.Run( method, cancellationToken );
+                await Task.Delay( 10, cancellationToken );
+
+                // ensure we're actually waiting for entry
+                mock.Object._semaphores[id].Count.Should().Be( 2 );
+                mock.Object._semaphores[id].Semaphore.CurrentCount.Should().Be( 0 );
+                next.IsCompleted.Should().BeFalse();
+
+                // release the first reference
+                first.Dispose();
+
+                // second reference should complete
+                using var second = await next;
+                mock.Object._semaphores[id].Count.Should().Be( 1 );
             }
         }
     }

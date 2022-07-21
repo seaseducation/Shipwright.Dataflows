@@ -3,6 +3,8 @@
 // All Rights Reserved.
 
 using FluentValidation;
+using Identifiable;
+using Newtonsoft.Json;
 using Shipwright.Databases;
 
 namespace Shipwright.Dataflows.Transformations;
@@ -104,6 +106,94 @@ public record DbUpsert : Transformation
     /// </summary>
     public class Handler : TransformationHandler
     {
+        internal readonly DbUpsert _transformation;
+
+        public Handler( DbUpsert transformation )
+        {
+            _transformation = transformation ?? throw new ArgumentNullException( nameof(transformation) );
+        }
+
+        /// <summary>
+        /// Wrapper for a semaphore that maintains a count of the number of records referencing it.
+        /// </summary>
+        internal class SemaphoreCounter
+        {
+            public int Count { get; set; } = 1;
+            public SemaphoreSlim Semaphore { get; } = new( 1, 1 );
+        }
+
+        /// <summary>
+        /// Collection of semaphores indexed by record key identifier.
+        /// All reads and writes should be locked.
+        /// </summary>
+        internal readonly Dictionary<Guid, SemaphoreCounter> _semaphores = new();
+
+        /// <summary>
+        /// Safely returns the semaphore for the given record identifier.
+        /// </summary>
+        /// <param name="id">Record key identifier whose semaphore to return.</param>
+        public virtual SemaphoreSlim GetSemaphore( Guid id )
+        {
+            lock ( _semaphores )
+            {
+                if ( _semaphores.TryGetValue( id, out var counter ) )
+                {
+                    ++counter.Count;
+                    return counter.Semaphore;
+                }
+
+                return (_semaphores[id] = new()).Semaphore;
+            }
+        }
+
+        /// <summary>
+        /// Releases the specified semaphore and decrements its counter.
+        /// </summary>
+        /// <param name="id">Record identifier of the semaphore to release.</param>
+        public virtual void ReleaseSemaphore( Guid id )
+        {
+            lock ( _semaphores )
+            {
+                var counter = _semaphores[id];
+                counter.Semaphore.Release();
+
+                // remove from the collection if there are no more references
+                if ( --counter.Count == 0 )
+                {
+                    _semaphores.Remove( id );
+                    counter.Semaphore.Dispose();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Wrapper that releases the semaphore for the specified record when disposed.
+        /// </summary>
+        /// <param name="Id">Record whose semaphore to release.</param>
+        /// <param name="Callback">Callback for releasing the semaphore.</param>
+        internal record Releaser( Guid Id, Action<Guid> Callback ) : IDisposable
+        {
+            public void Dispose() => Callback( Id );
+        }
+
+        /// <summary>
+        /// Computes a deterministic identifier based on record key values.
+        /// </summary>
+        /// <param name="record">Record whose identifier to compute.</param>
+        public virtual Guid GetRecordIdentifier( Record record )
+        {
+            var values = new Dictionary<string, object?>();
+
+            // populate all field values
+            foreach ( var ( type, field, column ) in _transformation.Fields )
+                if ( type == ColumnType.Key )
+                    values[column] = record.GetValueOrDefault( field );
+
+            // compute the record key
+            var name = JsonConvert.SerializeObject( values ).ToUpperInvariant();
+            return NamedGuid.Compute( NamedGuidAlgorithm.SHA1, Guid.Empty, name );
+        }
+
         /// <summary>
         /// Obtains an exclusive lock on the record key to ensure that only one record with a given key can be
         /// processing through the handler at a time. This helps avoid deadlocks.
@@ -111,9 +201,12 @@ public record DbUpsert : Transformation
         /// <param name="record">Record containing the key values.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A reference that releases the lock when disposed.</returns>
-        public virtual Task<IDisposable> Lock( Record record, CancellationToken cancellationToken )
+        public virtual async Task<IDisposable> Lock( Record record, CancellationToken cancellationToken )
         {
-            throw new NotImplementedException();
+            var id = GetRecordIdentifier( record );
+            var semaphore = GetSemaphore( id );
+            await semaphore.WaitAsync( cancellationToken );
+            return new Releaser( id, ReleaseSemaphore );
         }
 
         /// <summary>
@@ -189,7 +282,7 @@ public record DbUpsert : Transformation
         {
             if ( transformation == null ) throw new ArgumentNullException( nameof(transformation) );
 
-            return Task.FromResult<ITransformationHandler>( new Handler() );
+            return Task.FromResult<ITransformationHandler>( new Handler( transformation ) );
         }
     }
 }

@@ -34,7 +34,8 @@ public class FactoryTests
         {
             cancellationToken = new( canceled );
             var actual = await method();
-            actual.Should().BeOfType<DbUpsert.Handler>();
+            var handler = actual.Should().BeOfType<DbUpsert.Handler>().Subject;
+            handler._transformation.Should().BeSameAs( transformation );
         }
     }
 }
