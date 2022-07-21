@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using Shipwright.Databases;
 using SqlKata.Compilers;
 using SqlKata.Execution;
+using System.Collections;
 
 namespace Shipwright.Dataflows.Transformations;
 
@@ -71,7 +72,25 @@ public record DbUpsert : Transformation
     /// <param name="Type">Type of the column mapping.</param>
     /// <param name="Field">Dataflow record field name.</param>
     /// <param name="Column">Database column name.</param>
-    public record FieldMap( ColumnType Type, string Field, string Column );
+    public record FieldMap( ColumnType Type, string Field, string Column )
+    {
+        /// <summary>
+        /// Defines a delegate for determining if a change detected in a column value should result in updating that
+        /// column.
+        /// </summary>
+        public delegate bool ShouldReplaceDelegate( object? incoming, object? existing );
+
+        /// <summary>
+        /// Delegate for determining if a change detected ina column value should result in updating that column.
+        /// </summary>
+        public ShouldReplaceDelegate Replace { get; init; } = ( _, _ ) => true;
+
+        /// <summary>
+        /// Deconstruct overload.
+        /// </summary>
+        public void Deconstruct( out ColumnType type, out string field, out string column, out ShouldReplaceDelegate replace ) =>
+            ( type, field, column, replace ) = (Type, Field, Column, Replace);
+    }
 
     /// <summary>
     /// Validator for the <see cref="DbUpsert"/> transformation.
@@ -92,6 +111,11 @@ public record DbUpsert : Transformation
             RuleForEach( _ => _.Fields ).Where( field => field != null )
                 .Must( _ => !string.IsNullOrWhiteSpace( _.Column ) )
                 .WithMessage( "Field mapping {CollectionIndex} requires a column name" );
+
+            RuleForEach( _ => _.Fields ).Where( field => field != null )
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+                .Must( _ => _.Replace != null )
+                .WithMessage( "Field mapping {CollectionIndex} requires a replacement evaluator" );
 
             RuleFor( _ => _.Fields )
                 .Must( fields => fields?.GroupBy( _ => _?.Column ?? string.Empty )?.All( _ => _.Count() == 1 ) == true )
@@ -253,6 +277,35 @@ public record DbUpsert : Transformation
         }
 
         /// <summary>
+        /// Returns whether two values are equivalent.
+        /// </summary>
+        /// <param name="incoming">First value to compare.</param>
+        /// <param name="existing">Second value to compare.</param>
+        /// <returns>True if the values are equivalent; otherwise false.</returns>
+        public virtual bool AreEqual( object? incoming, object? existing ) => incoming switch
+        {
+            // null comparisons
+            null => existing == null,
+
+            // array comparisons (e.g., MSSQL varbinary)
+            IStructuralEquatable structural when structural.GetType().IsArray =>
+                structural.Equals( existing, StructuralComparisons.StructuralEqualityComparer ),
+
+            // boolean/integer conversions
+            // handles edge cases where boolean values are stored as integers
+            bool boolSource when existing is int intExisting =>
+                ( boolSource && intExisting == 1 ) || ( !boolSource && intExisting == 0 ),
+
+            // decimal/numeric conversions
+            // handles edge cases in oracle where dapper reads a numeric value into an unexpected data type
+            decimal decimalSource when existing is IConvertible convertible =>
+                decimalSource.Equals( Convert.ToDecimal( convertible ) ),
+
+            // standard equality
+            _ => Equals( incoming, existing )
+        };
+
+        /// <summary>
         /// Determines whether the existing database record should be updated with changes from the dataflow record.
         /// </summary>
         /// <param name="record">Record containing values to compare against the existing database record.</param>
@@ -261,7 +314,21 @@ public record DbUpsert : Transformation
         /// <returns>True if the record should be updated with changes; false if the values are unchanged.</returns>
         public virtual bool TryGetChanges( Record record, IDictionary<string,object?> existing, out Dictionary<string,object?> changes )
         {
-            throw new NotImplementedException();
+            changes = new();
+
+            foreach ( var ( type, field, column, replace ) in _transformation.Fields )
+            {
+                if ( type == ColumnType.Update )
+                {
+                    var incoming = record.GetValueOrDefault( field );
+                    var current = existing.TryGetValue( column, out var value ) ? value : null;
+
+                    if ( !AreEqual( incoming, current ) && replace( incoming, current ) )
+                        changes[column] = incoming;
+                }
+            }
+
+            return changes.Any();
         }
 
         /// <summary>

@@ -100,6 +100,14 @@ public class ValidatorTests
         }
 
         [Fact]
+        public async Task cannot_have_null_replace_delegate()
+        {
+            instance.Fields.Add( _fixture.Create<DbUpsert.FieldMap>() with { Replace = null! } );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.Fields );
+        }
+
+        [Fact]
         public async Task requires_a_key_column()
         {
             var keys = instance.Fields.Where( _ => _.Type == DbUpsert.ColumnType.Key ).ToArray();

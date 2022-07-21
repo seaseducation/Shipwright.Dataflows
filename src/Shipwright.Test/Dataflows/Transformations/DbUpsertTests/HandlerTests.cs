@@ -357,4 +357,180 @@ public class HandlerTests
             actualParameters.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedParameters );
         }
     }
+
+    public class AreEqual : HandlerTests
+    {
+        object? incoming;
+        object? existing;
+        bool method() => mock.Object.AreEqual( incoming, existing );
+
+        public class WhenEquivalent : AreEqual
+        {
+            public class EquivalentCases : TheoryData<object?, object?>
+            {
+                public EquivalentCases()
+                {
+                    // null equivalency
+                    Add( null, null );
+
+                    // basic value type equality
+                    var guid = Guid.NewGuid();
+                    Add( guid, guid );
+
+                    var integer = new Random().Next();
+                    Add( integer, integer );
+
+                    // structural equivalency
+                    Add( guid.ToByteArray(), guid.ToByteArray().ToArray() );
+                    Add( new[] { integer }, new[] { integer } );
+
+                    // boolean/integer equivalency
+                    Add( true, 1 );
+                    Add( false, 0 );
+
+                    // convertible decimal equavalency
+                    Add( Convert.ToDecimal( integer ), integer );
+                }
+            }
+
+            [Theory]
+            [ClassData(typeof(EquivalentCases))]
+            public void returns_true( object? inc, object? ex )
+            {
+                incoming = inc;
+                existing = ex;
+                method().Should().BeTrue();
+            }
+        }
+
+        public class WhenNotEquivalent : AreEqual
+        {
+            public class InequivalentCases : TheoryData<object?, object?>
+            {
+                public InequivalentCases()
+                {
+                    // mismatching null values
+                    Add( null, Guid.Empty );
+                    Add( Guid.Empty, null );
+
+                    // differing value types
+                    Add( 0, Guid.Empty );
+                    Add( 0, 1 );
+
+                    // differing structural types
+                    Add( new[] { 1 }, new[] { 2 } );
+
+                    // differing strings
+                    Add( Guid.NewGuid().ToString(), Guid.Empty.ToString() );
+
+                    // differing types
+                    Add( Guid.Empty, Guid.Empty.ToString() );
+                }
+            }
+
+            [Theory]
+            [ClassData(typeof(InequivalentCases))]
+            public void returns_false( object? inc, object? ex )
+            {
+                incoming = inc;
+                existing = ex;
+                method().Should().BeFalse();
+            }
+        }
+    }
+
+    public abstract class TryGetChanges : HandlerTests
+    {
+        Record record;
+        Dictionary<string, object?> existing;
+        Dictionary<string, object?> changes;
+        bool method() => mock.Object.TryGetChanges( record, existing, out changes );
+
+        DbUpsert.FieldMap.ShouldReplaceDelegate replace;
+
+        protected TryGetChanges()
+        {
+            record = fixture.Create<Record>();
+            existing = new();
+            changes = new();
+        }
+
+        public static IEnumerable<object[]> NonUpdateTypes = Enum.GetValues<DbUpsert.ColumnType>()
+            .Where( type => type != DbUpsert.ColumnType.Update )
+            .Select( type => new object[] { type } )
+            .ToArray();
+
+        [Theory]
+        [MemberData(nameof(NonUpdateTypes))]
+        public void ignores_differences_in_non_update_fields( DbUpsert.ColumnType type )
+        {
+            record.Data.Clear();
+            var (field, column) = fixture.Create<(string, string)>();
+            transformation.Fields.Add( new( type, field, column ) { Replace = replace } );
+            record[field] = fixture.Create<string>();
+            existing[column] = fixture.Create<string>();
+
+            method().Should().BeFalse();
+            changes.Should().BeEmpty();
+        }
+
+        public class WhenReplaceIsTrue : TryGetChanges
+        {
+            public WhenReplaceIsTrue()
+            {
+                replace = ( _, _ ) => true;
+            }
+
+            [Fact]
+            public void detects_differences_in_update_fields()
+            {
+                record.Data.Clear();
+                var (field, column) = fixture.Create<(string, string)>();
+                existing[column] = fixture.Create<string>();
+                var expected = record[field] = fixture.Create<string>();
+
+                replace = ( item1, item2 ) =>
+                {
+                    item1.Should().Be( expected );
+                    item2.Should().Be( existing[column] );
+                    return true;
+                };
+
+                transformation.Fields.Add( new( DbUpsert.ColumnType.Update, field, column ) { Replace = replace } );
+
+                method().Should().BeTrue();
+                changes.Should().ContainSingle();
+                changes[column].Should().Be( expected );
+            }
+        }
+
+        public class WhenReplaceIsFalse : TryGetChanges
+        {
+            public WhenReplaceIsFalse()
+            {
+                replace = ( _, _ ) => false;
+            }
+
+            [Fact]
+            public void ignores_differences_in_update_fields()
+            {
+                record.Data.Clear();
+                var (field, column) = fixture.Create<(string, string)>();
+                existing[column] = fixture.Create<string>();
+                var expected = record[field] = fixture.Create<string>();
+
+                replace = ( item1, item2 ) =>
+                {
+                    item1.Should().Be( expected );
+                    item2.Should().Be( existing[column] );
+                    return false;
+                };
+
+                transformation.Fields.Add( new( DbUpsert.ColumnType.Update, field, column ) { Replace = replace } );
+
+                method().Should().BeFalse();
+                changes.Should().BeEmpty();
+            }
+        }
+    }
 }
