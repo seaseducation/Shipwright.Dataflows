@@ -98,4 +98,98 @@ public record DbUpsert : Transformation
                 .WithMessage( "No key column found in field mappings" );
         }
     }
+
+    /// <summary>
+    /// Handler for the <see cref="DbUpsert"/> transformation.
+    /// </summary>
+    public class Handler : TransformationHandler
+    {
+        /// <summary>
+        /// Obtains an exclusive lock on the record key to ensure that only one record with a given key can be
+        /// processing through the handler at a time. This helps avoid deadlocks.
+        /// </summary>
+        /// <param name="record">Record containing the key values.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A reference that releases the lock when disposed.</returns>
+        public virtual Task<IDisposable> Lock( Record record, CancellationToken cancellationToken )
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Queries the database for an existing record with the key values.
+        /// </summary>
+        /// <param name="record">Record whose existing database record to query.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The collection of database records matching the key values.</returns>
+        public virtual async Task<IEnumerable<dynamic>> Select( Record record, CancellationToken cancellationToken )
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Determines whether the existing database record should be updated with changes from the dataflow record.
+        /// </summary>
+        /// <param name="record">Record containing values to compare against the existing database record.</param>
+        /// <param name="existing">Existing database record.</param>
+        /// <param name="changes">The columns with detected changes and their values.</param>
+        /// <returns>True if the record should be updated with changes; false if the values are unchanged.</returns>
+        public virtual bool TryGetChanges( Record record, IDictionary<string,object?> existing, out Dictionary<string,object?> changes )
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Inserts a new record into the database.
+        /// </summary>
+        /// <param name="record">Record containing the values to insert.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public virtual Task Insert( Record record, CancellationToken cancellationToken )
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Updates an existing record in the database.
+        /// </summary>
+        /// <param name="record">Record containing incoming values.</param>
+        /// <param name="changes">Collection of changed columns and their values.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public virtual Task Update( Record record, IDictionary<string,object?> changes, CancellationToken cancellationToken )
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Implementation of <see cref="ITransformationHandler"/>.
+        /// </summary>
+        public override async Task Transform( Record record, CancellationToken cancellationToken )
+        {
+            if ( record == null ) throw new ArgumentNullException( nameof(record) );
+
+            using var @lock = await Lock( record, cancellationToken );
+            var matches = ( await Select( record, cancellationToken ) ).ToArray();
+            if ( matches.Length > 1 ) throw new InvalidOperationException( "Multiple matches found for the DbUpsert key value" );
+
+            IDictionary<string, object?>? existing = matches.SingleOrDefault();
+
+            if ( existing == null )
+                await Insert( record, cancellationToken );
+            else if ( TryGetChanges( record, existing, out var changes ) )
+                await Update( record, changes, cancellationToken );
+        }
+    }
+
+    /// <summary>
+    /// Factory for the <see cref="DbUpsert"/> transformation handler.
+    /// </summary>
+    public class Factory : ITransformationHandlerFactory<DbUpsert>
+    {
+        public Task<ITransformationHandler> Create( DbUpsert transformation, CancellationToken cancellationToken )
+        {
+            if ( transformation == null ) throw new ArgumentNullException( nameof(transformation) );
+
+            return Task.FromResult<ITransformationHandler>( new Handler() );
+        }
+    }
 }
