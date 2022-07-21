@@ -388,7 +388,7 @@ public class HandlerTests
                     Add( true, 1 );
                     Add( false, 0 );
 
-                    // convertible decimal equavalency
+                    // convertible decimal equivalency
                     Add( Convert.ToDecimal( integer ), integer );
                 }
             }
@@ -545,9 +545,11 @@ public class HandlerTests
             record = fixture.Create<Record>();
         }
 
-        [Fact]
-        public async Task inserts_all_mapped_column_values()
+        [Theory]
+        [BooleanCases]
+        public async Task inserts_all_mapped_column_values( bool canceled )
         {
+            cancellationToken = new( canceled );
             var expected = new Dictionary<string, object?>();
 
             foreach ( var (_, field, column) in transformation.Fields )
@@ -558,6 +560,55 @@ public class HandlerTests
 
             await method();
             actual.Should().ContainSingle().Subject.Should().BeEquivalentTo( expected );
+        }
+    }
+
+    public class Update : HandlerTests
+    {
+        Record record;
+        Dictionary<string, object?> changes;
+        CancellationToken cancellationToken;
+        Task method() => mock.Object.Update( record, changes, cancellationToken );
+
+        public Update()
+        {
+            record = fixture.Create<Record>();
+            changes = fixture.Create<Dictionary<string, object?>>();
+        }
+
+        [Theory]
+        [BooleanCases]
+        public async Task add_triggers_to_changes_and_updates_database( bool canceled )
+        {
+            cancellationToken = new( canceled );
+
+            // ensure a composite key exists
+            for ( var i = 0; i < 2; i++ )
+                transformation.Fields.Add( fixture.Create<DbUpsert.FieldMap>() with { Type = DbUpsert.ColumnType.Key } );
+
+            var expectedChanges = new Dictionary<string, object?>( changes );
+            var expectedKeys = new Dictionary<string, object?>();
+
+            foreach ( var ( type, field, column ) in transformation.Fields )
+            {
+                switch ( type )
+                {
+                    case DbUpsert.ColumnType.Key:
+                        expectedKeys[column] = record[field] = fixture.Create<string>();
+                        break;
+                    case DbUpsert.ColumnType.Trigger:
+                        expectedChanges[column] = record[field] = fixture.Create<string>();
+                        break;
+                }
+            }
+
+            var actualKeys = new List<IDictionary<string, object?>>();
+            var actualChanges = new List<IDictionary<string, object?>>();
+            mock.Setup( _ => _.Update( Capture.In( actualKeys ), Capture.In( actualChanges ), cancellationToken ) ).Returns( Task.CompletedTask );
+
+            await method();
+            actualKeys.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedKeys );
+            actualChanges.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedChanges );
         }
     }
 }

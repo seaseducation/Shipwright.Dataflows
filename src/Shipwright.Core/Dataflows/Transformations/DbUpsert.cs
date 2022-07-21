@@ -362,12 +362,45 @@ public record DbUpsert : Transformation
         /// <summary>
         /// Updates an existing record in the database.
         /// </summary>
+        /// <param name="keys">Key columns and their values to locate the record.</param>
+        /// <param name="changes">Columns to update and their values.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public virtual async Task Update( IDictionary<string,object?> keys, IDictionary<string,object?> changes, CancellationToken cancellationToken )
+        {
+            using var connection = _connectionFactory.Create( _transformation.ConnectionInfo );
+            var db = new QueryFactory( connection, _compiler );
+            var query = db.Query( _transformation.Table )
+                .Where( keys );
+
+            await query.UpdateAsync( changes, cancellationToken: cancellationToken );
+        }
+
+        /// <summary>
+        /// Updates an existing record in the database.
+        /// </summary>
         /// <param name="record">Record containing incoming values.</param>
         /// <param name="changes">Collection of changed columns and their values.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        public virtual Task Update( Record record, IDictionary<string,object?> changes, CancellationToken cancellationToken )
+        public virtual async Task Update( Record record, IDictionary<string,object?> changes, CancellationToken cancellationToken )
         {
-            throw new NotImplementedException();
+            var keys = new Dictionary<string, object?>();
+
+            foreach ( var ( type, field, column ) in _transformation.Fields )
+            {
+                switch ( type )
+                {
+                    case ColumnType.Key:
+                        keys[column] = record.GetValueOrDefault( field );
+                        break;
+
+                    // trigger fields require updating when a record has changed
+                    case ColumnType.Trigger:
+                        changes[column] = record.GetValueOrDefault( field );
+                        break;
+                }
+            }
+
+            await Update( keys, changes, cancellationToken );
         }
 
         /// <summary>
