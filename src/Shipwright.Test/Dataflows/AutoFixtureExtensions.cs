@@ -2,9 +2,7 @@
 // Copyright (c) TTCO Holding Company, Inc. and Contributors
 // All Rights Reserved.
 
-using AutoFixture;
 using AutoFixture.Kernel;
-using Microsoft.Extensions.Configuration;
 using Shipwright.Databases;
 using Shipwright.Dataflows.EventSinks;
 using Shipwright.Dataflows.Sources;
@@ -21,6 +19,10 @@ public static class AutoFixtureExtensions
         fixture.Customizations.Add( new TypeRelay( typeof(EventSink), typeof(FakeEventSink) ) );
         fixture.Customizations.Add( new TypeRelay( typeof(DbConnectionInfo), typeof(FakeDbConnectionInfo) ) );
         fixture.Customize<Dataflow>( dataflow => dataflow.Without( _ => _.Configuration ) );
+
+        // ensure that dbupsert field maps have one of each column type
+        fixture.Customize<DbUpsert>( upsert => upsert.With( _ => _.Fields, () =>
+            Enum.GetValues<DbUpsert.ColumnType>().Select( type => new DbUpsert.FieldMap( type, fixture.Create<string>(), fixture.Create<string>() ) ).ToList() ) );
 
         return fixture;
     }

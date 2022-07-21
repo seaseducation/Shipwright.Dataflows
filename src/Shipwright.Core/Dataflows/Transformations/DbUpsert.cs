@@ -26,6 +26,13 @@ public record DbUpsert : Transformation
     public string Table { get; init; } = null!;
 
     /// <summary>
+    /// Collection of fields mapped to columns that participate in inserts/updates.
+    /// At least one key field is required.
+    /// Columns may be mapped only once.
+    /// </summary>
+    public ICollection<FieldMap> Fields { get; init; } = new List<FieldMap>();
+
+    /// <summary>
     /// Column participation type.
     /// </summary>
     public enum ColumnType
@@ -53,7 +60,15 @@ public record DbUpsert : Transformation
         /// </summary>
         Trigger,
     }
-    
+
+    /// <summary>
+    /// Maps a dataflow record field to a database column.
+    /// </summary>
+    /// <param name="Type">Type of the column mapping.</param>
+    /// <param name="Field">Dataflow record field name.</param>
+    /// <param name="Column">Database column name.</param>
+    public record FieldMap( ColumnType Type, string Field, string Column );
+
     /// <summary>
     /// Validator for the <see cref="DbUpsert"/> transformation.
     /// </summary>
@@ -63,6 +78,24 @@ public record DbUpsert : Transformation
         {
             RuleFor( _ => _.ConnectionInfo ).NotNull();
             RuleFor( _ => _.Table ).NotEmpty();
+            RuleFor( _ => _.Fields ).NotEmpty();
+            RuleForEach( _ => _.Fields ).NotNull();
+
+            RuleForEach( _ => _.Fields ).Where( field => field != null )
+                .Must( _ => !string.IsNullOrWhiteSpace( _.Field ) )
+                .WithMessage( "Field mapping {CollectionIndex} requires a field name" );
+
+            RuleForEach( _ => _.Fields ).Where( field => field != null )
+                .Must( _ => !string.IsNullOrWhiteSpace( _.Column ) )
+                .WithMessage( "Field mapping {CollectionIndex} requires a column name" );
+
+            RuleFor( _ => _.Fields )
+                .Must( fields => fields?.GroupBy( _ => _?.Column ?? string.Empty )?.All( _ => _.Count() == 1 ) == true )
+                .WithMessage( "Duplicate column name found in field mappings" );
+
+            RuleFor( _ => _.Fields )
+                .Must( fields => fields?.Any( _ => _.Type == ColumnType.Key ) == true )
+                .WithMessage( "No key column found in field mappings" );
         }
     }
 }
