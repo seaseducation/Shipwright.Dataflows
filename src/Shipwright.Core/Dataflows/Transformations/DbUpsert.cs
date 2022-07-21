@@ -334,11 +334,29 @@ public record DbUpsert : Transformation
         /// <summary>
         /// Inserts a new record into the database.
         /// </summary>
+        /// <param name="values">Record values indexed by column name.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public virtual async Task Insert( Dictionary<string,object?> values, CancellationToken cancellationToken )
+        {
+            using var connection = _connectionFactory.Create( _transformation.ConnectionInfo );
+            var db = new QueryFactory( connection, _compiler );
+            var query = db.Query( _transformation.Table );
+            await query.InsertAsync( values, cancellationToken: cancellationToken );
+        }
+
+        /// <summary>
+        /// Inserts a new record into the database.
+        /// </summary>
         /// <param name="record">Record containing the values to insert.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        public virtual Task Insert( Record record, CancellationToken cancellationToken )
+        public virtual async Task Insert( Record record, CancellationToken cancellationToken )
         {
-            throw new NotImplementedException();
+            var values = new Dictionary<string, object?>();
+
+            foreach ( var (_, field, column) in _transformation.Fields )
+                values[column] = record.GetValueOrDefault( field );
+
+            await Insert( values, cancellationToken );
         }
 
         /// <summary>

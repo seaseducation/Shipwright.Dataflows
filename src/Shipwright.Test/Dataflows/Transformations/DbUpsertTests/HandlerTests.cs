@@ -533,4 +533,31 @@ public class HandlerTests
             }
         }
     }
+
+    public class Insert : HandlerTests
+    {
+        Record record;
+        CancellationToken cancellationToken;
+        Task method() => mock.Object.Insert( record, cancellationToken );
+
+        public Insert()
+        {
+            record = fixture.Create<Record>();
+        }
+
+        [Fact]
+        public async Task inserts_all_mapped_column_values()
+        {
+            var expected = new Dictionary<string, object?>();
+
+            foreach ( var (_, field, column) in transformation.Fields )
+                expected[column] = record[field] = fixture.Create<string>();
+
+            var actual = new List<Dictionary<string, object?>>();
+            mock.Setup( _ => _.Insert( Capture.In( actual ), cancellationToken ) ).Returns( Task.CompletedTask );
+
+            await method();
+            actual.Should().ContainSingle().Subject.Should().BeEquivalentTo( expected );
+        }
+    }
 }
