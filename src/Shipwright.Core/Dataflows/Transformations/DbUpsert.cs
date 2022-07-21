@@ -6,6 +6,8 @@ using FluentValidation;
 using Identifiable;
 using Newtonsoft.Json;
 using Shipwright.Databases;
+using SqlKata.Compilers;
+using SqlKata.Execution;
 
 namespace Shipwright.Dataflows.Transformations;
 
@@ -107,10 +109,14 @@ public record DbUpsert : Transformation
     public class Handler : TransformationHandler
     {
         internal readonly DbUpsert _transformation;
+        internal readonly IDbConnectionFactory _connectionFactory;
+        internal readonly Compiler _compiler;
 
-        public Handler( DbUpsert transformation )
+        public Handler( DbUpsert transformation, IDbConnectionFactory connectionFactory, Compiler compiler )
         {
             _transformation = transformation ?? throw new ArgumentNullException( nameof(transformation) );
+            _connectionFactory = connectionFactory ?? throw new ArgumentNullException( nameof(connectionFactory) );
+            _compiler = compiler ?? throw new ArgumentNullException( nameof(compiler) );
         }
 
         /// <summary>
@@ -210,6 +216,21 @@ public record DbUpsert : Transformation
         }
 
         /// <summary>
+        /// Queries the database for an existing record.
+        /// </summary>
+        /// <param name="selectable">Columns to select in the query.</param>
+        /// <param name="parameters">Query parameters.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The collection of database records matching the key values.</returns>
+        public virtual async Task<IEnumerable<dynamic>> Select( IEnumerable<string> selectable, IDictionary<string,object?> parameters, CancellationToken cancellationToken )
+        {
+            using var connection = _connectionFactory.Create( _transformation.ConnectionInfo );
+            var db = new QueryFactory( connection, _compiler );
+            var query = db.Query( _transformation.Table );
+            return await query.Where( parameters ).Select( selectable.ToArray() ).GetAsync( cancellationToken: cancellationToken );
+        }
+
+        /// <summary>
         /// Queries the database for an existing record with the key values.
         /// </summary>
         /// <param name="record">Record whose existing database record to query.</param>
@@ -217,7 +238,18 @@ public record DbUpsert : Transformation
         /// <returns>The collection of database records matching the key values.</returns>
         public virtual async Task<IEnumerable<dynamic>> Select( Record record, CancellationToken cancellationToken )
         {
-            throw new NotImplementedException();
+            var selectable = new List<string>();
+            var parameters = new Dictionary<string, object?>();
+
+            foreach ( var ( type, field, column ) in _transformation.Fields )
+            {
+                selectable.Add( column );
+
+                if ( type == ColumnType.Key )
+                    parameters[column] = record.GetValueOrDefault( field );
+            }
+
+            return await Select( selectable, parameters, cancellationToken );
         }
 
         /// <summary>
@@ -278,11 +310,24 @@ public record DbUpsert : Transformation
     /// </summary>
     public class Factory : ITransformationHandlerFactory<DbUpsert>
     {
+        readonly IDbConnectionFactory _connectionFactory;
+
+        public Factory( IDbConnectionFactory connectionFactory )
+        {
+            _connectionFactory = connectionFactory ?? throw new ArgumentNullException( nameof(connectionFactory) );
+        }
+
         public Task<ITransformationHandler> Create( DbUpsert transformation, CancellationToken cancellationToken )
         {
             if ( transformation == null ) throw new ArgumentNullException( nameof(transformation) );
 
-            return Task.FromResult<ITransformationHandler>( new Handler( transformation ) );
+            var compiler = transformation.ConnectionInfo switch
+            {
+                OracleConnectionInfo => new OracleCompiler(),
+                _ => throw new NotImplementedException( $"No compiler configured for the connection type: {transformation.ConnectionInfo.GetType()}" )
+            };
+
+            return Task.FromResult<ITransformationHandler>( new Handler( transformation, _connectionFactory, compiler ) );
         }
     }
 }

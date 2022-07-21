@@ -4,6 +4,8 @@
 
 using Identifiable;
 using Newtonsoft.Json;
+using Shipwright.Databases;
+using SqlKata.Compilers;
 using System.Collections;
 
 namespace Shipwright.Dataflows.Transformations.DbUpsertTests;
@@ -12,8 +14,10 @@ public class HandlerTests
 {
     readonly Fixture fixture = new Fixture().WithDataflowCustomization();
     DbUpsert transformation;
+    Mock<IDbConnectionFactory> connectionFactory = new( MockBehavior.Strict );
+    Mock<Compiler> compiler = new( MockBehavior.Strict );
     Mock<DbUpsert.Handler> mock;
-    Mock<DbUpsert.Handler> instance() => new( MockBehavior.Default, transformation ) { CallBase = true };
+    Mock<DbUpsert.Handler> instance() => new( MockBehavior.Default, transformation, connectionFactory.Object, compiler.Object ) { CallBase = true };
 
     public HandlerTests()
     {
@@ -23,13 +27,27 @@ public class HandlerTests
 
     public class Constructor : HandlerTests
     {
-        ITransformationHandler constructor() => new DbUpsert.Handler( transformation );
+        ITransformationHandler constructor() => new DbUpsert.Handler( transformation, connectionFactory?.Object!, compiler?.Object! );
 
         [Fact]
         public void requires_transformation()
         {
             transformation = null!;
             Assert.Throws<ArgumentNullException>( nameof(transformation), constructor );
+        }
+
+        [Fact]
+        public void requires_connectionFactory()
+        {
+            connectionFactory = null!;
+            Assert.Throws<ArgumentNullException>( nameof(connectionFactory), constructor );
+        }
+
+        [Fact]
+        public void requires_compiler()
+        {
+            compiler = null!;
+            Assert.Throws<ArgumentNullException>( nameof(compiler), constructor );
         }
     }
 
@@ -293,6 +311,50 @@ public class HandlerTests
                 using var second = await next;
                 mock.Object._semaphores[id].Count.Should().Be( 1 );
             }
+        }
+    }
+
+    public class Select : HandlerTests
+    {
+        Record record;
+        CancellationToken cancellationToken;
+        Task<IEnumerable<dynamic>> method() => mock.Object.Select( record, cancellationToken );
+
+        public Select()
+        {
+            record = fixture.Create<Record>();
+        }
+
+        [Theory]
+        [BooleanCases]
+        public async Task queries_all_columns_with_key_values( bool canceled )
+        {
+            cancellationToken = new( canceled );
+
+            // ensure a composite key exists
+            for ( var i = 0; i < 2; i++ )
+                transformation.Fields.Add( fixture.Create<DbUpsert.FieldMap>() with { Type = DbUpsert.ColumnType.Key } );
+
+            var expectedColumns = transformation.Fields.Select( _ => _.Column ).ToArray();
+            var expectedParameters = new Dictionary<string, object?>();
+
+            foreach ( var ( type, field, column ) in transformation.Fields )
+            {
+                record[field] = fixture.Create<string>();
+
+                if ( type == DbUpsert.ColumnType.Key )
+                    expectedParameters[column] = record[field];
+            }
+
+            var actualColumns = new List<IEnumerable<string>>();
+            var actualParameters = new List<IDictionary<string, object?>>();
+            var expected = fixture.CreateMany<Dictionary<string,object?>>().ToArray();
+            mock.Setup( _ => _.Select( Capture.In( actualColumns ), Capture.In( actualParameters ), cancellationToken ) ).ReturnsAsync( expected );
+
+            var actual = await method();
+            actual.Should().BeEquivalentTo( expected );
+            actualColumns.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedColumns );
+            actualParameters.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedParameters );
         }
     }
 }
