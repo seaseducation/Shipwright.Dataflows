@@ -78,4 +78,13 @@ public record Record
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         return value != null;
     }
+
+    /// <summary>
+    /// Returns the value if it is found in the record, otherwise returns the default value.
+    /// </summary>
+    /// <param name="key">Record field whose value to return.</param>
+    /// <param name="default">Default value to return if none is found in the record. Defaults to null.</param>
+    public object? GetValueOrDefault( string key, object? @default = null ) => TryGetValue( key, out var value )
+        ? value
+        : @default;
 }
