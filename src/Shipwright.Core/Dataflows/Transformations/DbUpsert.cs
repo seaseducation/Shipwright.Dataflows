@@ -38,6 +38,30 @@ public record DbUpsert : Transformation
     public ICollection<FieldMap> Fields { get; init; } = new List<FieldMap>();
 
     /// <summary>
+    /// Transformations to execute before new records are inserted.
+    /// Note: Changing the values of <see cref="ColumnType.Key"/> fields during these transformations will have
+    /// unpredictable results.
+    /// </summary>
+    public ICollection<Transformation> BeforeInsert { get; init; } = new List<Transformation>();
+
+    /// <summary>
+    /// Transformations to execute after new records are inserted.
+    /// </summary>
+    public ICollection<Transformation> AfterInsert { get; init; } = new List<Transformation>();
+
+    /// <summary>
+    /// Transformations to execute before existing records are updated.
+    /// Note: Changing the values of <see cref="ColumnType.Key"/> or <see cref="ColumnType.Update"/> fields during
+    /// these transformations will have unpredictable results.
+    /// </summary>
+    public ICollection<Transformation> BeforeUpdate { get; init; } = new List<Transformation>();
+
+    /// <summary>
+    /// Transformations to execute after existing records are updated.
+    /// </summary>
+    public ICollection<Transformation> AfterUpdate { get; init; } = new List<Transformation>();
+
+    /// <summary>
     /// Column participation type.
     /// </summary>
     public enum ColumnType
@@ -103,6 +127,14 @@ public record DbUpsert : Transformation
             RuleFor( _ => _.Table ).NotEmpty();
             RuleFor( _ => _.Fields ).NotEmpty();
             RuleForEach( _ => _.Fields ).NotNull();
+            RuleFor( _ => _.BeforeInsert ).NotNull();
+            RuleForEach( _ => _.BeforeInsert ).NotNull();
+            RuleFor( _ => _.AfterInsert ).NotNull();
+            RuleForEach( _ => _.AfterInsert ).NotNull();
+            RuleFor( _ => _.BeforeUpdate ).NotNull();
+            RuleForEach( _ => _.BeforeUpdate ).NotNull();
+            RuleFor( _ => _.AfterUpdate ).NotNull();
+            RuleForEach( _ => _.AfterUpdate ).NotNull();
 
             RuleForEach( _ => _.Fields ).Where( field => field != null )
                 .Must( _ => !string.IsNullOrWhiteSpace( _.Field ) )
@@ -135,12 +167,38 @@ public record DbUpsert : Transformation
         internal readonly DbUpsert _transformation;
         internal readonly IDbConnectionFactory _connectionFactory;
         internal readonly Compiler _compiler;
+        internal readonly ITransformationHandler? _beforeInsertHandler;
+        internal readonly ITransformationHandler? _afterInsertHandler;
+        internal readonly ITransformationHandler? _beforeUpdateHandler;
+        internal readonly ITransformationHandler? _afterUpdateHandler;
 
-        public Handler( DbUpsert transformation, IDbConnectionFactory connectionFactory, Compiler compiler )
+        public Handler
+        (
+            DbUpsert transformation,
+            IDbConnectionFactory connectionFactory,
+            Compiler compiler,
+            ITransformationHandler? beforeInsertHandler,
+            ITransformationHandler? afterInsertHandler,
+            ITransformationHandler? beforeUpdateHandler,
+            ITransformationHandler? afterUpdateHandler
+        )
         {
             _transformation = transformation ?? throw new ArgumentNullException( nameof(transformation) );
             _connectionFactory = connectionFactory ?? throw new ArgumentNullException( nameof(connectionFactory) );
             _compiler = compiler ?? throw new ArgumentNullException( nameof(compiler) );
+            _beforeInsertHandler = beforeInsertHandler;
+            _afterInsertHandler = afterInsertHandler;
+            _beforeUpdateHandler = beforeUpdateHandler;
+            _afterUpdateHandler = afterUpdateHandler;
+        }
+
+        protected override async ValueTask DisposeAsyncCore()
+        {
+            await base.DisposeAsyncCore();
+            if ( _beforeInsertHandler != null ) await _beforeInsertHandler.DisposeAsync();
+            if ( _afterInsertHandler != null ) await _afterInsertHandler.DisposeAsync();
+            if ( _beforeUpdateHandler != null ) await _beforeUpdateHandler.DisposeAsync();
+            if ( _afterUpdateHandler != null ) await _afterUpdateHandler.DisposeAsync();
         }
 
         /// <summary>
@@ -360,6 +418,22 @@ public record DbUpsert : Transformation
         }
 
         /// <summary>
+        /// Calls any defined transformations before inserting a new record.
+        /// </summary>
+        public virtual async Task BeforeInsert( Record record, CancellationToken cancellationToken )
+        {
+            if ( _beforeInsertHandler != null ) await _beforeInsertHandler.Transform( record, cancellationToken );
+        }
+
+        /// <summary>
+        /// Calls any defined transformations after inserting a new record.
+        /// </summary>
+        public virtual async Task AfterInsert( Record record, CancellationToken cancellationToken )
+        {
+            if ( _afterInsertHandler != null ) await _afterInsertHandler.Transform( record, cancellationToken );
+        }
+
+        /// <summary>
         /// Updates an existing record in the database.
         /// </summary>
         /// <param name="keys">Key columns and their values to locate the record.</param>
@@ -404,6 +478,22 @@ public record DbUpsert : Transformation
         }
 
         /// <summary>
+        /// Calls any defined transformations before updating an existing record.
+        /// </summary>
+        public virtual async Task BeforeUpdate( Record record, CancellationToken cancellationToken )
+        {
+            if ( _beforeUpdateHandler != null ) await _beforeUpdateHandler.Transform( record, cancellationToken );
+        }
+
+        /// <summary>
+        /// Calls any defined transformations before updating an existing record.
+        /// </summary>
+        public virtual async Task AfterUpdate( Record record, CancellationToken cancellationToken )
+        {
+            if ( _afterUpdateHandler != null ) await _afterUpdateHandler.Transform( record, cancellationToken );
+        }
+
+        /// <summary>
         /// Implementation of <see cref="ITransformationHandler"/>.
         /// </summary>
         public override async Task Transform( Record record, CancellationToken cancellationToken )
@@ -417,9 +507,17 @@ public record DbUpsert : Transformation
             IDictionary<string, object?>? existing = matches.SingleOrDefault();
 
             if ( existing == null )
+            {
+                await BeforeInsert( record, cancellationToken );
                 await Insert( record, cancellationToken );
+                await AfterInsert( record, cancellationToken );
+            }
             else if ( TryGetChanges( record, existing, out var changes ) )
+            {
+                await BeforeUpdate( record, cancellationToken );
                 await Update( record, changes, cancellationToken );
+                await AfterUpdate( record, cancellationToken );
+            }
         }
     }
 
@@ -429,13 +527,15 @@ public record DbUpsert : Transformation
     public class Factory : ITransformationHandlerFactory<DbUpsert>
     {
         readonly IDbConnectionFactory _connectionFactory;
+        readonly ITransformationHandlerFactory _transformationHandlerFactory;
 
-        public Factory( IDbConnectionFactory connectionFactory )
+        public Factory( IDbConnectionFactory connectionFactory, ITransformationHandlerFactory transformationHandlerFactory )
         {
             _connectionFactory = connectionFactory ?? throw new ArgumentNullException( nameof(connectionFactory) );
+            _transformationHandlerFactory = transformationHandlerFactory ?? throw new ArgumentNullException( nameof(transformationHandlerFactory) );
         }
 
-        public Task<ITransformationHandler> Create( DbUpsert transformation, CancellationToken cancellationToken )
+        public async Task<ITransformationHandler> Create( DbUpsert transformation, CancellationToken cancellationToken )
         {
             if ( transformation == null ) throw new ArgumentNullException( nameof(transformation) );
 
@@ -445,7 +545,21 @@ public record DbUpsert : Transformation
                 _ => throw new NotImplementedException( $"No compiler configured for the connection type: {transformation.ConnectionInfo.GetType()}" )
             };
 
-            return Task.FromResult<ITransformationHandler>( new Handler( transformation, _connectionFactory, compiler ) );
+            async Task<ITransformationHandler?> createOptionalHandler( ICollection<Transformation> transformations ) =>
+                transformations.Any()
+                    ? await _transformationHandlerFactory.Create( new AggregateTransformation { Transformations = transformations }, cancellationToken )
+                    : null;
+
+            return new Handler
+            (
+                transformation,
+                _connectionFactory,
+                compiler,
+                await createOptionalHandler( transformation.BeforeInsert ),
+                await createOptionalHandler( transformation.AfterInsert ),
+                await createOptionalHandler( transformation.BeforeUpdate ),
+                await createOptionalHandler( transformation.AfterUpdate )
+            );
         }
     }
 }

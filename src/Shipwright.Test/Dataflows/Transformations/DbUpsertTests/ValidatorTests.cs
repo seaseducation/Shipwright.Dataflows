@@ -134,4 +134,144 @@ public class ValidatorTests
             result.ShouldNotHaveValidationErrorFor( _ => _.Fields );
         }
     }
+
+    public class BeforeInsert : ValidatorTests
+    {
+        [Fact]
+        public async Task cannot_be_null()
+        {
+            instance = instance with { BeforeInsert = null! };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.BeforeInsert );
+        }
+
+        [Fact]
+        public async Task cannot_contain_null_elements()
+        {
+            instance.BeforeInsert.Add( null! );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.BeforeInsert );
+        }
+
+        [Fact]
+        public async Task valid_when_empty()
+        {
+            instance.BeforeInsert.Clear();
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.BeforeInsert );
+        }
+
+        [Fact]
+        public async Task valid_when_has_elements()
+        {
+            instance.BeforeInsert.Add( new FakeTransformation() );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.BeforeInsert );
+        }
+    }
+
+    public class AfterInsert : ValidatorTests
+    {
+        [Fact]
+        public async Task cannot_be_null()
+        {
+            instance = instance with { AfterInsert = null! };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.AfterInsert );
+        }
+
+        [Fact]
+        public async Task cannot_contain_null_elements()
+        {
+            instance.AfterInsert.Add( null! );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.AfterInsert );
+        }
+
+        [Fact]
+        public async Task valid_when_empty()
+        {
+            instance.AfterInsert.Clear();
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.AfterInsert );
+        }
+
+        [Fact]
+        public async Task valid_when_has_elements()
+        {
+            instance.AfterInsert.Add( new FakeTransformation() );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.AfterInsert );
+        }
+    }
+
+    public class BeforeUpdate : ValidatorTests
+    {
+        [Fact]
+        public async Task cannot_be_null()
+        {
+            instance = instance with { BeforeUpdate = null! };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.BeforeUpdate );
+        }
+
+        [Fact]
+        public async Task cannot_contain_null_elements()
+        {
+            instance.BeforeUpdate.Add( null! );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.BeforeUpdate );
+        }
+
+        [Fact]
+        public async Task valid_when_empty()
+        {
+            instance.BeforeUpdate.Clear();
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.BeforeUpdate );
+        }
+
+        [Fact]
+        public async Task valid_when_has_elements()
+        {
+            instance.BeforeUpdate.Add( new FakeTransformation() );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.BeforeUpdate );
+        }
+    }
+
+    public class AfterUpdate : ValidatorTests
+    {
+        [Fact]
+        public async Task cannot_be_null()
+        {
+            instance = instance with { AfterUpdate = null! };
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.AfterUpdate );
+        }
+
+        [Fact]
+        public async Task cannot_contain_null_elements()
+        {
+            instance.AfterUpdate.Add( null! );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldHaveValidationErrorFor( _ => _.AfterUpdate );
+        }
+
+        [Fact]
+        public async Task valid_when_empty()
+        {
+            instance.AfterUpdate.Clear();
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.AfterUpdate );
+        }
+
+        [Fact]
+        public async Task valid_when_has_elements()
+        {
+            instance.AfterUpdate.Add( new FakeTransformation() );
+            var result = await validator.TestValidateAsync( instance );
+            result.ShouldNotHaveValidationErrorFor( _ => _.AfterUpdate );
+        }
+    }
 }

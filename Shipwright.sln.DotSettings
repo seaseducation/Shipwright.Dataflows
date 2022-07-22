@@ -46,4 +46,5 @@
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Ctop/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=DSCtop/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Dataflows/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=Inequivalent/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=TTCO/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>

@@ -3,10 +3,10 @@
 // All Rights Reserved.
 
 using Identifiable;
+using JetBrains.Annotations;
 using Newtonsoft.Json;
 using Shipwright.Databases;
 using SqlKata.Compilers;
-using System.Collections;
 
 namespace Shipwright.Dataflows.Transformations.DbUpsertTests;
 
@@ -17,9 +17,21 @@ public class HandlerTests
     Mock<IDbConnectionFactory> connectionFactory = new( MockBehavior.Strict );
     Mock<Compiler> compiler = new( MockBehavior.Strict );
     Mock<DbUpsert.Handler> mock;
-    Mock<DbUpsert.Handler> instance() => new( MockBehavior.Default, transformation, connectionFactory.Object, compiler.Object ) { CallBase = true };
+    Mock<ITransformationHandler> beforeInsertHandler = new( MockBehavior.Strict );
+    Mock<ITransformationHandler> afterInsertHandler = new( MockBehavior.Strict );
+    Mock<ITransformationHandler> beforeUpdateHandler = new( MockBehavior.Strict );
+    Mock<ITransformationHandler> afterUpdateHandler = new( MockBehavior.Strict );
+    Mock<DbUpsert.Handler> instance() => new( MockBehavior.Default,
+        transformation,
+        connectionFactory.Object,
+        compiler.Object,
+        beforeInsertHandler?.Object,
+        afterInsertHandler?.Object,
+        beforeUpdateHandler?.Object,
+        afterUpdateHandler?.Object
+    ) { CallBase = true };
 
-    public HandlerTests()
+    protected HandlerTests()
     {
         transformation = fixture.Create<DbUpsert>();
         mock = instance();
@@ -27,7 +39,16 @@ public class HandlerTests
 
     public class Constructor : HandlerTests
     {
-        ITransformationHandler constructor() => new DbUpsert.Handler( transformation, connectionFactory?.Object!, compiler?.Object! );
+        ITransformationHandler constructor() => new DbUpsert.Handler
+        (
+            transformation,
+            connectionFactory?.Object!,
+            compiler?.Object!,
+            beforeInsertHandler?.Object!,
+            afterInsertHandler?.Object!,
+            beforeUpdateHandler?.Object!,
+            afterUpdateHandler?.Object!
+        );
 
         [Fact]
         public void requires_transformation()
@@ -83,7 +104,9 @@ public class HandlerTests
                 var releaser = new Mock<IDisposable>( MockBehavior.Strict );
                 mock.InSequence( sequence ).Setup( _ => _.Lock( record, cancellationToken ) ).ReturnsAsync( releaser.Object );
                 mock.InSequence( sequence ).Setup( _ => _.Select( record, cancellationToken ) ).ReturnsAsync( Array.Empty<dynamic>() );
+                mock.InSequence( sequence ).Setup( _ => _.BeforeInsert( record, cancellationToken ) ).Returns( Task.CompletedTask );
                 mock.InSequence( sequence ).Setup( _ => _.Insert( record, cancellationToken ) ).Returns( Task.CompletedTask );
+                mock.InSequence( sequence ).Setup( _ => _.AfterInsert( record, cancellationToken ) ).Returns( Task.CompletedTask );
                 releaser.InSequence( sequence ).Setup( _ => _.Dispose() );
 
                 await method();
@@ -106,7 +129,9 @@ public class HandlerTests
                 mock.InSequence( sequence ).Setup( _ => _.Lock( record, cancellationToken ) ).ReturnsAsync( releaser.Object );
                 mock.InSequence( sequence ).Setup( _ => _.Select( record, cancellationToken ) ).ReturnsAsync( new [] { existing } );
                 mock.InSequence( sequence ).Setup( _ => _.TryGetChanges( record, existing, out changes ) ).Returns( true );
+                mock.InSequence( sequence ).Setup( _ => _.BeforeUpdate( record, cancellationToken ) ).Returns( Task.CompletedTask );
                 mock.InSequence( sequence ).Setup( _ => _.Update( record, changes, cancellationToken ) ).Returns( Task.CompletedTask );
+                mock.InSequence( sequence ).Setup( _ => _.AfterUpdate( record, cancellationToken ) ).Returns( Task.CompletedTask );
                 releaser.InSequence( sequence ).Setup( _ => _.Dispose() );
 
                 await method();
@@ -160,7 +185,7 @@ public class HandlerTests
 
     public class GetSemaphore : HandlerTests
     {
-        Guid id = Guid.NewGuid();
+        readonly Guid id = Guid.NewGuid();
         SemaphoreSlim method() => mock.Object.GetSemaphore( id );
 
         [Fact]
@@ -179,7 +204,7 @@ public class HandlerTests
 
     public class ReleaseSemaphore : HandlerTests
     {
-        Guid id = Guid.NewGuid();
+        readonly Guid id = Guid.NewGuid();
         void method() => mock.Object.ReleaseSemaphore( id );
 
         public class WhenLastReference : ReleaseSemaphore
@@ -213,7 +238,7 @@ public class HandlerTests
 
     public class GetRecordIdentifier : HandlerTests
     {
-        Record record;
+        readonly Record record;
         Guid method() => mock.Object.GetRecordIdentifier( record );
 
         public GetRecordIdentifier()
@@ -248,7 +273,7 @@ public class HandlerTests
 
     public class Lock : HandlerTests
     {
-        Record record;
+        readonly Record record;
         CancellationToken cancellationToken;
         Task<IDisposable> method() => mock.Object.Lock( record, cancellationToken );
 
@@ -316,7 +341,7 @@ public class HandlerTests
 
     public class Select : HandlerTests
     {
-        Record record;
+        readonly Record record;
         CancellationToken cancellationToken;
         Task<IEnumerable<dynamic>> method() => mock.Object.Select( record, cancellationToken );
 
@@ -366,6 +391,7 @@ public class HandlerTests
 
         public class WhenEquivalent : AreEqual
         {
+            [UsedImplicitly]
             public class EquivalentCases : TheoryData<object?, object?>
             {
                 public EquivalentCases()
@@ -405,6 +431,7 @@ public class HandlerTests
 
         public class WhenNotEquivalent : AreEqual
         {
+            [UsedImplicitly]
             public class InequivalentCases : TheoryData<object?, object?>
             {
                 public InequivalentCases()
@@ -441,12 +468,12 @@ public class HandlerTests
 
     public abstract class TryGetChanges : HandlerTests
     {
-        Record record;
-        Dictionary<string, object?> existing;
+        readonly Record record;
+        readonly Dictionary<string, object?> existing;
         Dictionary<string, object?> changes;
         bool method() => mock.Object.TryGetChanges( record, existing, out changes );
 
-        DbUpsert.FieldMap.ShouldReplaceDelegate replace;
+        DbUpsert.FieldMap.ShouldReplaceDelegate replace = null!;
 
         protected TryGetChanges()
         {
@@ -536,7 +563,7 @@ public class HandlerTests
 
     public class Insert : HandlerTests
     {
-        Record record;
+        readonly Record record;
         CancellationToken cancellationToken;
         Task method() => mock.Object.Insert( record, cancellationToken );
 
@@ -563,10 +590,86 @@ public class HandlerTests
         }
     }
 
+    public class BeforeInsert : HandlerTests
+    {
+        readonly Record record;
+        CancellationToken cancellationToken;
+        Task method() => mock.Object.BeforeInsert( record, cancellationToken );
+
+        protected BeforeInsert()
+        {
+            record = fixture.Create<Record>();
+        }
+
+        public class WhenDefined : BeforeInsert
+        {
+            [Theory]
+            [BooleanCases]
+            public async Task calls_handler( bool canceled )
+            {
+                cancellationToken = new( canceled );
+                beforeInsertHandler.Setup( _ => _.Transform( record, cancellationToken ) ).Returns( Task.CompletedTask );
+                await method();
+                beforeInsertHandler.Verify( _ => _.Transform( record, cancellationToken ), Times.Once() );
+            }
+        }
+
+        public class WhenNotDefined : BeforeInsert
+        {
+            [Theory]
+            [BooleanCases]
+            public async Task does_not_call_handler( bool canceled )
+            {
+                cancellationToken = new( canceled );
+                beforeInsertHandler = null!;
+                mock = instance();
+                await method();
+            }
+        }
+    }
+
+    public class AfterInsert : HandlerTests
+    {
+        readonly Record record;
+        CancellationToken cancellationToken;
+        Task method() => mock.Object.AfterInsert( record, cancellationToken );
+
+        protected AfterInsert()
+        {
+            record = fixture.Create<Record>();
+        }
+
+        public class WhenDefined : AfterInsert
+        {
+            [Theory]
+            [BooleanCases]
+            public async Task calls_handler( bool canceled )
+            {
+                cancellationToken = new( canceled );
+                afterInsertHandler.Setup( _ => _.Transform( record, cancellationToken ) ).Returns( Task.CompletedTask );
+                await method();
+                afterInsertHandler.Verify( _ => _.Transform( record, cancellationToken ), Times.Once() );
+            }
+        }
+
+        public class WhenNotDefined : AfterInsert
+        {
+            [Theory]
+            [BooleanCases]
+            public async Task does_not_call_handler( bool canceled )
+            {
+                cancellationToken = new( canceled );
+                afterInsertHandler = null!;
+                mock = instance();
+                await method();
+            }
+        }
+    }
+
     public class Update : HandlerTests
     {
-        Record record;
-        Dictionary<string, object?> changes;
+        readonly Record record;
+        readonly Dictionary<string, object?> changes;
         CancellationToken cancellationToken;
         Task method() => mock.Object.Update( record, changes, cancellationToken );
 
@@ -609,6 +712,114 @@ public class HandlerTests
             await method();
             actualKeys.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedKeys );
             actualChanges.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedChanges );
+        }
+    }
+
+    public class BeforeUpdate : HandlerTests
+    {
+        readonly Record record;
+        CancellationToken cancellationToken;
+        Task method() => mock.Object.BeforeUpdate( record, cancellationToken );
+
+        protected BeforeUpdate()
+        {
+            record = fixture.Create<Record>();
+        }
+
+        public class WhenDefined : BeforeUpdate
+        {
+            [Theory]
+            [BooleanCases]
+            public async Task calls_handler( bool canceled )
+            {
+                cancellationToken = new( canceled );
+                beforeUpdateHandler.Setup( _ => _.Transform( record, cancellationToken ) ).Returns( Task.CompletedTask );
+                await method();
+                beforeUpdateHandler.Verify( _ => _.Transform( record, cancellationToken ), Times.Once() );
+            }
+        }
+
+        public class WhenNotDefined : BeforeUpdate
+        {
+            [Theory]
+            [BooleanCases]
+            public async Task does_not_call_handler( bool canceled )
+            {
+                cancellationToken = new( canceled );
+                beforeUpdateHandler = null!;
+                mock = instance();
+                await method();
+            }
+        }
+    }
+
+    public class AfterUpdate : HandlerTests
+    {
+        readonly Record record;
+        CancellationToken cancellationToken;
+        Task method() => mock.Object.AfterUpdate( record, cancellationToken );
+
+        protected AfterUpdate()
+        {
+            record = fixture.Create<Record>();
+        }
+
+        public class WhenDefined : AfterUpdate
+        {
+            [Theory]
+            [BooleanCases]
+            public async Task calls_handler( bool canceled )
+            {
+                cancellationToken = new( canceled );
+                afterUpdateHandler.Setup( _ => _.Transform( record, cancellationToken ) ).Returns( Task.CompletedTask );
+                await method();
+                afterUpdateHandler.Verify( _ => _.Transform( record, cancellationToken ), Times.Once() );
+            }
+        }
+
+        public class WhenNotDefined : AfterUpdate
+        {
+            [Theory]
+            [BooleanCases]
+            public async Task does_not_call_handler( bool canceled )
+            {
+                cancellationToken = new( canceled );
+                afterUpdateHandler = null!;
+                mock = instance();
+                await method();
+            }
+        }
+    }
+
+    public class DisposeAsync : HandlerTests
+    {
+        async Task method() => await mock.Object.DisposeAsync();
+
+        public class WhenHasOptionalHandlers : DisposeAsync
+        {
+            [Fact]
+            public async Task disposes_child_handlers()
+            {
+                var sequence = new MockSequence();
+                beforeInsertHandler.InSequence( sequence ).Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
+                afterInsertHandler.InSequence( sequence ).Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
+                beforeUpdateHandler.InSequence( sequence ).Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
+                afterUpdateHandler.InSequence( sequence ).Setup( _ => _.DisposeAsync() ).Returns( ValueTask.CompletedTask );
+
+                await method();
+                afterUpdateHandler.Verify( _ => _.DisposeAsync(), Times.Once() );
+            }
+        }
+
+        public class WhenNoOptionalHandlers : DisposeAsync
+        {
+            [Fact]
+            public async Task no_op()
+            {
+                beforeInsertHandler = afterInsertHandler = beforeUpdateHandler = afterUpdateHandler = null!;
+                mock = instance();
+                await method();
+            }
         }
     }
 }
