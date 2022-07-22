@@ -39,8 +39,8 @@ public record DbUpsert : Transformation
 
     /// <summary>
     /// Transformations to execute before new records are inserted.
-    /// Note: Changing the values of <see cref="ColumnType.Key"/> fields during these transformations will have
-    /// unpredictable results.
+    /// Changes to column values in these transformations will be reflected in the insert.
+    /// Changes to <see cref="ColumnType.Key"/> values will have unpredictable results.
     /// </summary>
     public ICollection<Transformation> BeforeInsert { get; init; } = new List<Transformation>();
 
@@ -51,8 +51,8 @@ public record DbUpsert : Transformation
 
     /// <summary>
     /// Transformations to execute before existing records are updated.
-    /// Note: Changing the values of <see cref="ColumnType.Key"/> or <see cref="ColumnType.Update"/> fields during
-    /// these transformations will have unpredictable results.
+    /// Changes to <see cref="ColumnType.Trigger"/> values will be reflected in the update.
+    /// Changes to other column types will have no effect on the update.
     /// </summary>
     public ICollection<Transformation> BeforeUpdate { get; init; } = new List<Transformation>();
 
@@ -162,6 +162,7 @@ public record DbUpsert : Transformation
     /// <summary>
     /// Handler for the <see cref="DbUpsert"/> transformation.
     /// </summary>
+    // ReSharper disable once ClassWithVirtualMembersNeverInherited.Global
     public class Handler : TransformationHandler
     {
         internal readonly DbUpsert _transformation;
@@ -171,6 +172,9 @@ public record DbUpsert : Transformation
         internal readonly ITransformationHandler? _afterInsertHandler;
         internal readonly ITransformationHandler? _beforeUpdateHandler;
         internal readonly ITransformationHandler? _afterUpdateHandler;
+        internal readonly IEnumerable<string> _selectableColumns;
+        internal readonly IEnumerable<FieldMap> _keys;
+        internal readonly IEnumerable<FieldMap> _triggers;
 
         public Handler
         (
@@ -190,6 +194,10 @@ public record DbUpsert : Transformation
             _afterInsertHandler = afterInsertHandler;
             _beforeUpdateHandler = beforeUpdateHandler;
             _afterUpdateHandler = afterUpdateHandler;
+
+            _selectableColumns = transformation.Fields.Select( _ => _.Column ).ToArray();
+            _keys = transformation.Fields.Where( _ => _.Type == ColumnType.Key ).ToArray();
+            _triggers = transformation.Fields.Where( _ => _.Type == ColumnType.Trigger ).ToArray();
         }
 
         protected override async ValueTask DisposeAsyncCore()
@@ -268,17 +276,17 @@ public record DbUpsert : Transformation
         /// Computes a deterministic identifier based on record key values.
         /// </summary>
         /// <param name="record">Record whose identifier to compute.</param>
-        public virtual Guid GetRecordIdentifier( Record record )
+        /// <param name="key">Record key parameter to use with queries.</param>
+        public virtual Guid GetRecordIdentifier( Record record, out Dictionary<string,object?> key )
         {
-            var values = new Dictionary<string, object?>();
+            key = new();
 
-            // populate all field values
-            foreach ( var ( type, field, column ) in _transformation.Fields )
-                if ( type == ColumnType.Key )
-                    values[column] = record.GetValueOrDefault( field );
+            // populate all key field values
+            foreach ( var ( _, field, column ) in _keys )
+                key[column] = record.GetValueOrDefault( field );
 
             // compute the record key
-            var name = JsonConvert.SerializeObject( values ).ToUpperInvariant();
+            var name = JsonConvert.SerializeObject( key ).ToUpperInvariant();
             return NamedGuid.Compute( NamedGuidAlgorithm.SHA1, Guid.Empty, name );
         }
 
@@ -286,12 +294,11 @@ public record DbUpsert : Transformation
         /// Obtains an exclusive lock on the record key to ensure that only one record with a given key can be
         /// processing through the handler at a time. This helps avoid deadlocks.
         /// </summary>
-        /// <param name="record">Record containing the key values.</param>
+        /// <param name="id">Identifier that represents the record key.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A reference that releases the lock when disposed.</returns>
-        public virtual async Task<IDisposable> Lock( Record record, CancellationToken cancellationToken )
+        public virtual async Task<IDisposable> Lock( Guid id, CancellationToken cancellationToken )
         {
-            var id = GetRecordIdentifier( record );
             var semaphore = GetSemaphore( id );
             await semaphore.WaitAsync( cancellationToken );
             return new Releaser( id, ReleaseSemaphore );
@@ -300,38 +307,15 @@ public record DbUpsert : Transformation
         /// <summary>
         /// Queries the database for an existing record.
         /// </summary>
-        /// <param name="selectable">Columns to select in the query.</param>
         /// <param name="parameters">Query parameters.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The collection of database records matching the key values.</returns>
-        public virtual async Task<IEnumerable<dynamic>> Select( IEnumerable<string> selectable, IDictionary<string,object?> parameters, CancellationToken cancellationToken )
+        public virtual async Task<IEnumerable<dynamic>> Select( IDictionary<string,object?> parameters, CancellationToken cancellationToken )
         {
             using var connection = _connectionFactory.Create( _transformation.ConnectionInfo );
             var db = new QueryFactory( connection, _compiler );
             var query = db.Query( _transformation.Table );
-            return await query.Where( parameters ).Select( selectable.ToArray() ).GetAsync( cancellationToken: cancellationToken );
-        }
-
-        /// <summary>
-        /// Queries the database for an existing record with the key values.
-        /// </summary>
-        /// <param name="record">Record whose existing database record to query.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>The collection of database records matching the key values.</returns>
-        public virtual async Task<IEnumerable<dynamic>> Select( Record record, CancellationToken cancellationToken )
-        {
-            var selectable = new List<string>();
-            var parameters = new Dictionary<string, object?>();
-
-            foreach ( var ( type, field, column ) in _transformation.Fields )
-            {
-                selectable.Add( column );
-
-                if ( type == ColumnType.Key )
-                    parameters[column] = record.GetValueOrDefault( field );
-            }
-
-            return await Select( selectable, parameters, cancellationToken );
+            return await query.Where( parameters ).Select( _selectableColumns.ToArray() ).GetAsync( cancellationToken: cancellationToken );
         }
 
         /// <summary>
@@ -434,47 +418,30 @@ public record DbUpsert : Transformation
         }
 
         /// <summary>
-        /// Updates an existing record in the database.
+        /// Adds the values of trigger fields to the collection of value changes.
         /// </summary>
-        /// <param name="keys">Key columns and their values to locate the record.</param>
-        /// <param name="changes">Columns to update and their values.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        public virtual async Task Update( IDictionary<string,object?> keys, IDictionary<string,object?> changes, CancellationToken cancellationToken )
+        /// <param name="record">Record containing the trigger values.</param>
+        /// <param name="changes">Changes collection.</param>
+        public virtual void AddTriggers( Record record, IDictionary<string,object?> changes )
         {
-            using var connection = _connectionFactory.Create( _transformation.ConnectionInfo );
-            var db = new QueryFactory( connection, _compiler );
-            var query = db.Query( _transformation.Table )
-                .Where( keys );
-
-            await query.UpdateAsync( changes, cancellationToken: cancellationToken );
+            foreach ( var (_, field, column) in _triggers )
+                changes[column] = record.GetValueOrDefault( field );
         }
 
         /// <summary>
         /// Updates an existing record in the database.
         /// </summary>
-        /// <param name="record">Record containing incoming values.</param>
-        /// <param name="changes">Collection of changed columns and their values.</param>
+        /// <param name="parameters">Record key parameters.</param>
+        /// <param name="changes">Columns to update and their values.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        public virtual async Task Update( Record record, IDictionary<string,object?> changes, CancellationToken cancellationToken )
+        public virtual async Task Update( IDictionary<string,object?> parameters, IDictionary<string,object?> changes, CancellationToken cancellationToken )
         {
-            var keys = new Dictionary<string, object?>();
+            using var connection = _connectionFactory.Create( _transformation.ConnectionInfo );
+            var db = new QueryFactory( connection, _compiler );
+            var query = db.Query( _transformation.Table )
+                .Where( parameters );
 
-            foreach ( var ( type, field, column ) in _transformation.Fields )
-            {
-                switch ( type )
-                {
-                    case ColumnType.Key:
-                        keys[column] = record.GetValueOrDefault( field );
-                        break;
-
-                    // trigger fields require updating when a record has changed
-                    case ColumnType.Trigger:
-                        changes[column] = record.GetValueOrDefault( field );
-                        break;
-                }
-            }
-
-            await Update( keys, changes, cancellationToken );
+            await query.UpdateAsync( changes, cancellationToken: cancellationToken );
         }
 
         /// <summary>
@@ -500,8 +467,9 @@ public record DbUpsert : Transformation
         {
             if ( record == null ) throw new ArgumentNullException( nameof(record) );
 
-            using var @lock = await Lock( record, cancellationToken );
-            var matches = ( await Select( record, cancellationToken ) ).ToArray();
+            var id = GetRecordIdentifier( record, out var key );
+            using var @lock = await Lock( id, cancellationToken );
+            var matches = ( await Select( key, cancellationToken ) ).ToArray();
             if ( matches.Length > 1 ) throw new InvalidOperationException( "Multiple matches found for the DbUpsert key value" );
 
             IDictionary<string, object?>? existing = matches.SingleOrDefault();
@@ -515,7 +483,8 @@ public record DbUpsert : Transformation
             else if ( TryGetChanges( record, existing, out var changes ) )
             {
                 await BeforeUpdate( record, cancellationToken );
-                await Update( record, changes, cancellationToken );
+                AddTriggers( record, changes );
+                await Update( key, changes, cancellationToken );
                 await AfterUpdate( record, cancellationToken );
             }
         }

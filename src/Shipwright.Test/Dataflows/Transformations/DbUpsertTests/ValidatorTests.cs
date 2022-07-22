@@ -10,7 +10,7 @@ public class ValidatorTests
     DbUpsert instance;
     readonly IValidator<DbUpsert> validator = new DbUpsert.Validator();
 
-    public ValidatorTests()
+    protected ValidatorTests()
     {
         instance = _fixture.Create<DbUpsert>();
     }

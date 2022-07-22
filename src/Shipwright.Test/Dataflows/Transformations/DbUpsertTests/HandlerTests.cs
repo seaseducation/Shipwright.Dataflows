@@ -70,6 +70,27 @@ public class HandlerTests
             compiler = null!;
             Assert.Throws<ArgumentNullException>( nameof(compiler), constructor );
         }
+
+        [Fact]
+        public void sets_selectable_columns()
+        {
+            var expected = transformation.Fields.Select( _ => _.Column ).ToArray();
+            mock.Object._selectableColumns.Should().BeEquivalentTo( expected );
+        }
+
+        [Fact]
+        public void sets_keys()
+        {
+            var expected = transformation.Fields.Where( _ => _.Type == DbUpsert.ColumnType.Key ).ToArray();
+            mock.Object._keys.Should().BeEquivalentTo( expected );
+        }
+
+        [Fact]
+        public void sets_triggers()
+        {
+            var expected = transformation.Fields.Where( _ => _.Type == DbUpsert.ColumnType.Trigger ).ToArray();
+            mock.Object._triggers.Should().BeEquivalentTo( expected );
+        }
     }
 
     public abstract class Transform : HandlerTests
@@ -102,8 +123,11 @@ public class HandlerTests
 
                 var sequence = new MockSequence();
                 var releaser = new Mock<IDisposable>( MockBehavior.Strict );
-                mock.InSequence( sequence ).Setup( _ => _.Lock( record, cancellationToken ) ).ReturnsAsync( releaser.Object );
-                mock.InSequence( sequence ).Setup( _ => _.Select( record, cancellationToken ) ).ReturnsAsync( Array.Empty<dynamic>() );
+                var id = Guid.NewGuid();
+                var key = fixture.Create<Dictionary<string, object?>>();
+                mock.InSequence( sequence ).Setup( _ => _.GetRecordIdentifier( record, out key ) ).Returns( id );
+                mock.InSequence( sequence ).Setup( _ => _.Lock( id, cancellationToken ) ).ReturnsAsync( releaser.Object );
+                mock.InSequence( sequence ).Setup( _ => _.Select( key, cancellationToken ) ).ReturnsAsync( Array.Empty<dynamic>() );
                 mock.InSequence( sequence ).Setup( _ => _.BeforeInsert( record, cancellationToken ) ).Returns( Task.CompletedTask );
                 mock.InSequence( sequence ).Setup( _ => _.Insert( record, cancellationToken ) ).Returns( Task.CompletedTask );
                 mock.InSequence( sequence ).Setup( _ => _.AfterInsert( record, cancellationToken ) ).Returns( Task.CompletedTask );
@@ -126,11 +150,15 @@ public class HandlerTests
                 var releaser = new Mock<IDisposable>( MockBehavior.Strict );
                 var existing = fixture.Create<IDictionary<string, object?>>();
                 var changes = fixture.Create<Dictionary<string, object?>>();
-                mock.InSequence( sequence ).Setup( _ => _.Lock( record, cancellationToken ) ).ReturnsAsync( releaser.Object );
-                mock.InSequence( sequence ).Setup( _ => _.Select( record, cancellationToken ) ).ReturnsAsync( new [] { existing } );
+                var id = Guid.NewGuid();
+                var key = fixture.Create<Dictionary<string, object?>>();
+                mock.InSequence( sequence ).Setup( _ => _.GetRecordIdentifier( record, out key ) ).Returns( id );
+                mock.InSequence( sequence ).Setup( _ => _.Lock( id, cancellationToken ) ).ReturnsAsync( releaser.Object );
+                mock.InSequence( sequence ).Setup( _ => _.Select( key, cancellationToken ) ).ReturnsAsync( new [] { existing } );
                 mock.InSequence( sequence ).Setup( _ => _.TryGetChanges( record, existing, out changes ) ).Returns( true );
                 mock.InSequence( sequence ).Setup( _ => _.BeforeUpdate( record, cancellationToken ) ).Returns( Task.CompletedTask );
-                mock.InSequence( sequence ).Setup( _ => _.Update( record, changes, cancellationToken ) ).Returns( Task.CompletedTask );
+                mock.InSequence( sequence ).Setup( _ => _.AddTriggers( record, changes ) );
+                mock.InSequence( sequence ).Setup( _ => _.Update( key, changes, cancellationToken ) ).Returns( Task.CompletedTask );
                 mock.InSequence( sequence ).Setup( _ => _.AfterUpdate( record, cancellationToken ) ).Returns( Task.CompletedTask );
                 releaser.InSequence( sequence ).Setup( _ => _.Dispose() );
 
@@ -151,14 +179,17 @@ public class HandlerTests
                 var releaser = new Mock<IDisposable>( MockBehavior.Strict );
                 var existing = fixture.Create<IDictionary<string, object?>>();
                 var changes = fixture.Create<Dictionary<string, object?>>();
-                mock.InSequence( sequence ).Setup( _ => _.Lock( record, cancellationToken ) ).ReturnsAsync( releaser.Object );
-                mock.InSequence( sequence ).Setup( _ => _.Select( record, cancellationToken ) ).ReturnsAsync( new [] { existing } );
+                var id = Guid.NewGuid();
+                var key = fixture.Create<Dictionary<string, object?>>();
+                mock.InSequence( sequence ).Setup( _ => _.GetRecordIdentifier( record, out key ) ).Returns( id );
+                mock.InSequence( sequence ).Setup( _ => _.Lock( id, cancellationToken ) ).ReturnsAsync( releaser.Object );
+                mock.InSequence( sequence ).Setup( _ => _.Select( key, cancellationToken ) ).ReturnsAsync( new [] { existing } );
                 mock.InSequence( sequence ).Setup( _ => _.TryGetChanges( record, existing, out changes ) ).Returns( false );
                 releaser.InSequence( sequence ).Setup( _ => _.Dispose() );
 
                 await method();
                 releaser.Verify( _ => _.Dispose(), Times.Once() );
-                mock.Verify( _ => _.Update( record, changes, cancellationToken ), Times.Never() );
+                mock.Verify( _ => _.Update( key, changes, cancellationToken ), Times.Never() );
             }
         }
 
@@ -173,8 +204,11 @@ public class HandlerTests
                 var sequence = new MockSequence();
                 var releaser = new Mock<IDisposable>( MockBehavior.Strict );
                 var matches = fixture.CreateMany<dynamic>();
-                mock.InSequence( sequence ).Setup( _ => _.Lock( record, cancellationToken ) ).ReturnsAsync( releaser.Object );
-                mock.InSequence( sequence ).Setup( _ => _.Select( record, cancellationToken ) ).ReturnsAsync( matches );
+                var id = Guid.NewGuid();
+                var key = fixture.Create<Dictionary<string, object?>>();
+                mock.InSequence( sequence ).Setup( _ => _.GetRecordIdentifier( record, out key ) ).Returns( id );
+                mock.InSequence( sequence ).Setup( _ => _.Lock( id, cancellationToken ) ).ReturnsAsync( releaser.Object );
+                mock.InSequence( sequence ).Setup( _ => _.Select( key, cancellationToken ) ).ReturnsAsync( matches );
                 releaser.InSequence( sequence ).Setup( _ => _.Dispose() );
 
                 await Assert.ThrowsAsync<InvalidOperationException>( method );
@@ -239,7 +273,8 @@ public class HandlerTests
     public class GetRecordIdentifier : HandlerTests
     {
         readonly Record record;
-        Guid method() => mock.Object.GetRecordIdentifier( record );
+        Dictionary<string, object?> key = new();
+        Guid method() => mock.Object.GetRecordIdentifier( record, out key );
 
         public GetRecordIdentifier()
         {
@@ -247,7 +282,7 @@ public class HandlerTests
         }
 
         [Fact]
-        public void computes_named_identifier_for_key_values()
+        public void computes_named_identifier_and_key_values()
         {
             var values = new Dictionary<string, object?>();
 
@@ -257,30 +292,27 @@ public class HandlerTests
                     values[column] = null;
 
             // add values for additional keys
-            var keys = fixture.CreateMany<(string field, string column)>().ToList();
+            var additional = fixture.CreateMany<(string field, string column)>().ToList();
 
-            foreach ( var ( field, column ) in keys )
+            foreach ( var ( field, column ) in additional )
             {
                 record[field] = values[column] = fixture.Create<string>();
                 transformation.Fields.Add( new( DbUpsert.ColumnType.Key, field, column ) );
             }
 
+            mock = instance();
             var expected = NamedGuid.Compute( NamedGuidAlgorithm.SHA1, Guid.Empty, JsonConvert.SerializeObject( values ).ToUpperInvariant() );
             var actual = method();
             actual.Should().Be( expected );
+            key.Should().BeEquivalentTo( values );
         }
     }
 
     public class Lock : HandlerTests
     {
-        readonly Record record;
+        readonly Guid id = Guid.NewGuid();
         CancellationToken cancellationToken;
-        Task<IDisposable> method() => mock.Object.Lock( record, cancellationToken );
-
-        protected Lock()
-        {
-            record = fixture.Create<Record>();
-        }
+        Task<IDisposable> method() => mock.Object.Lock( id, cancellationToken );
 
         public class WhenCanceled : Lock
         {
@@ -299,9 +331,6 @@ public class HandlerTests
             [Fact]
             public async Task returns_disposable_reference_that_releases_semaphore()
             {
-                var id = Guid.NewGuid();
-                mock.Setup( _ => _.GetRecordIdentifier( record ) ).Returns( id );
-
                 using ( var actual = await method() )
                 {
                     actual.Should().BeOfType<DbUpsert.Handler.Releaser>();
@@ -315,9 +344,6 @@ public class HandlerTests
             [Fact]
             public async Task prevents_entry_until_released()
             {
-                var id = Guid.NewGuid();
-                mock.Setup( _ => _.GetRecordIdentifier( record ) ).Returns( id );
-
                 var first = await method();
 
                 // capture as task
@@ -336,50 +362,6 @@ public class HandlerTests
                 using var second = await next;
                 mock.Object._semaphores[id].Count.Should().Be( 1 );
             }
-        }
-    }
-
-    public class Select : HandlerTests
-    {
-        readonly Record record;
-        CancellationToken cancellationToken;
-        Task<IEnumerable<dynamic>> method() => mock.Object.Select( record, cancellationToken );
-
-        public Select()
-        {
-            record = fixture.Create<Record>();
-        }
-
-        [Theory]
-        [BooleanCases]
-        public async Task queries_all_columns_with_key_values( bool canceled )
-        {
-            cancellationToken = new( canceled );
-
-            // ensure a composite key exists
-            for ( var i = 0; i < 2; i++ )
-                transformation.Fields.Add( fixture.Create<DbUpsert.FieldMap>() with { Type = DbUpsert.ColumnType.Key } );
-
-            var expectedColumns = transformation.Fields.Select( _ => _.Column ).ToArray();
-            var expectedParameters = new Dictionary<string, object?>();
-
-            foreach ( var ( type, field, column ) in transformation.Fields )
-            {
-                record[field] = fixture.Create<string>();
-
-                if ( type == DbUpsert.ColumnType.Key )
-                    expectedParameters[column] = record[field];
-            }
-
-            var actualColumns = new List<IEnumerable<string>>();
-            var actualParameters = new List<IDictionary<string, object?>>();
-            var expected = fixture.CreateMany<Dictionary<string,object?>>().ToArray();
-            mock.Setup( _ => _.Select( Capture.In( actualColumns ), Capture.In( actualParameters ), cancellationToken ) ).ReturnsAsync( expected );
-
-            var actual = await method();
-            actual.Should().BeEquivalentTo( expected );
-            actualColumns.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedColumns );
-            actualParameters.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedParameters );
         }
     }
 
@@ -663,55 +645,6 @@ public class HandlerTests
                 mock = instance();
                 await method();
             }
-        }
-    }
-
-    public class Update : HandlerTests
-    {
-        readonly Record record;
-        readonly Dictionary<string, object?> changes;
-        CancellationToken cancellationToken;
-        Task method() => mock.Object.Update( record, changes, cancellationToken );
-
-        public Update()
-        {
-            record = fixture.Create<Record>();
-            changes = fixture.Create<Dictionary<string, object?>>();
-        }
-
-        [Theory]
-        [BooleanCases]
-        public async Task add_triggers_to_changes_and_updates_database( bool canceled )
-        {
-            cancellationToken = new( canceled );
-
-            // ensure a composite key exists
-            for ( var i = 0; i < 2; i++ )
-                transformation.Fields.Add( fixture.Create<DbUpsert.FieldMap>() with { Type = DbUpsert.ColumnType.Key } );
-
-            var expectedChanges = new Dictionary<string, object?>( changes );
-            var expectedKeys = new Dictionary<string, object?>();
-
-            foreach ( var ( type, field, column ) in transformation.Fields )
-            {
-                switch ( type )
-                {
-                    case DbUpsert.ColumnType.Key:
-                        expectedKeys[column] = record[field] = fixture.Create<string>();
-                        break;
-                    case DbUpsert.ColumnType.Trigger:
-                        expectedChanges[column] = record[field] = fixture.Create<string>();
-                        break;
-                }
-            }
-
-            var actualKeys = new List<IDictionary<string, object?>>();
-            var actualChanges = new List<IDictionary<string, object?>>();
-            mock.Setup( _ => _.Update( Capture.In( actualKeys ), Capture.In( actualChanges ), cancellationToken ) ).Returns( Task.CompletedTask );
-
-            await method();
-            actualKeys.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedKeys );
-            actualChanges.Should().ContainSingle().Subject.Should().BeEquivalentTo( expectedChanges );
         }
     }
 
